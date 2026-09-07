@@ -61,28 +61,33 @@ export class FrameCompositor {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, height);
 
-    // 2. 각 슬롯에 사진 렌더링 (필터 적용)
+    // 2. 각 슬롯에 사진 렌더링 (개별 필터 적용)
     for (let i = 0; i < slots.length; i++) {
       const slot = slots[i];
-      const photoSrc = photos[i];
+      const photoItem = photos[i];
 
-      if (photoSrc) {
-        try {
-          const img = await this.loadImage(photoSrc);
+      if (photoItem) {
+        const photoSrc = typeof photoItem === 'object' ? photoItem.photoSrc : photoItem;
+        const currentFilter = (typeof photoItem === 'object' && photoItem.filterString) ? photoItem.filterString : filterString;
 
-          ctx.save();
-          // 슬롯 영역으로 클리핑 (모서리 라운딩 및 오버플로우 방지)
-          ctx.beginPath();
-          const r = 8;
-          ctx.roundRect(slot.x, slot.y, slot.w, slot.h, [r, r, r, r]);
-          ctx.clip();
+        if (photoSrc) {
+          try {
+            const img = await this.loadImage(photoSrc);
 
-          // 보정 필터 적용
-          ctx.filter = filterString;
-          this.drawCoverImage(ctx, img, slot.x, slot.y, slot.w, slot.h);
-          ctx.restore();
-        } catch (e) {
-          console.error(`Error loading photo at slot ${i}:`, e);
+            ctx.save();
+            // 슬롯 영역으로 클리핑 (모서리 라운딩 및 오버플로우 방지)
+            ctx.beginPath();
+            const r = 8;
+            ctx.roundRect(slot.x, slot.y, slot.w, slot.h, [r, r, r, r]);
+            ctx.clip();
+
+            // 개별 보정 필터 적용
+            ctx.filter = currentFilter || 'none';
+            this.drawCoverImage(ctx, img, slot.x, slot.y, slot.w, slot.h);
+            ctx.restore();
+          } catch (e) {
+            console.error(`Error loading photo at slot ${i}:`, e);
+          }
         }
       }
     }

@@ -1,5 +1,5 @@
 /**
- * editor.js - 사진 보정(필터/슬라이더) 및 사진 선택/순서 배치 에디터 모듈
+ * editor.js - 사진 보정(개별 필터/일괄 적용/슬라이더) 및 사진 선택/순서 배치 에디터 모듈
  */
 
 export const FILTER_PRESETS = [
@@ -12,7 +12,7 @@ export const FILTER_PRESETS = [
   },
   {
     id: 'bright',
-    name: '화사하게 (뽀샤시)',
+    name: '화사하게',
     icon: '🌸',
     cssFilter: 'brightness(1.12) contrast(1.05) saturate(1.15)',
     settings: { brightness: 112, contrast: 105, saturation: 115, sepia: 5, grayscale: 0, hueRotate: 0 }
@@ -50,12 +50,7 @@ export const FILTER_PRESETS = [
 export class PhotoEditor {
   constructor() {
     this.rawShots = []; // 6 captured shots
-    this.currentPreset = 'original';
-    this.customAdjustments = {
-      brightness: 100, // 50 ~ 150 %
-      contrast: 100,   // 50 ~ 150 %
-      saturation: 100, // 0 ~ 200 %
-    };
+    this.photoSettings = []; // Array of settings per photo [{ preset, brightness, contrast, saturation, sepia, grayscale, hueRotate }]
     this.selectedIndices = []; // Indices in rawShots assigned to frame slots [0, 1, 2, 3]
     this.slotCount = 4;
   }
@@ -64,8 +59,17 @@ export class PhotoEditor {
   init(shots, slotCount = 4) {
     this.rawShots = [...shots];
     this.slotCount = slotCount;
-    this.currentPreset = 'original';
-    this.resetAdjustments();
+
+    // 각 사진마다 독립된 기본 보정값 초기화
+    this.photoSettings = this.rawShots.map(() => ({
+      preset: 'original',
+      brightness: 100,
+      contrast: 100,
+      saturation: 100,
+      sepia: 0,
+      grayscale: 0,
+      hueRotate: 0,
+    }));
 
     // 기본값: 앞에서부터 슬롯 개수만큼 자동 선택
     this.selectedIndices = [];
@@ -74,47 +78,62 @@ export class PhotoEditor {
     }
   }
 
-  resetAdjustments() {
-    this.customAdjustments = {
+  // 특정 사진의 보정 설정 조회
+  getSettings(photoIdx) {
+    if (this.photoSettings[photoIdx]) {
+      return this.photoSettings[photoIdx];
+    }
+    return {
+      preset: 'original',
       brightness: 100,
       contrast: 100,
       saturation: 100,
+      sepia: 0,
+      grayscale: 0,
+      hueRotate: 0,
     };
   }
 
-  // 프리셋 적용
-  applyPreset(presetId) {
+  // 특정 사진에 프리셋 적용
+  applyPresetToPhoto(photoIdx, presetId) {
     const preset = FILTER_PRESETS.find(p => p.id === presetId);
-    if (preset) {
-      this.currentPreset = presetId;
-      this.customAdjustments.brightness = preset.settings.brightness;
-      this.customAdjustments.contrast = preset.settings.contrast;
-      this.customAdjustments.saturation = preset.settings.saturation;
+    if (preset && this.photoSettings[photoIdx]) {
+      this.photoSettings[photoIdx] = {
+        preset: presetId,
+        brightness: preset.settings.brightness,
+        contrast: preset.settings.contrast,
+        saturation: preset.settings.saturation,
+        sepia: preset.settings.sepia,
+        grayscale: preset.settings.grayscale,
+        hueRotate: preset.settings.hueRotate,
+      };
     }
   }
 
-  // 미세 조정 슬라이더 업데이트
-  setAdjustment(type, value) {
-    if (this.customAdjustments[type] !== undefined) {
-      this.customAdjustments[type] = Number(value);
+  // 특정 사진의 미세 조정 슬라이더 업데이트
+  setAdjustmentForPhoto(photoIdx, type, value) {
+    if (this.photoSettings[photoIdx] && this.photoSettings[photoIdx][type] !== undefined) {
+      this.photoSettings[photoIdx][type] = Number(value);
     }
   }
 
-  // 현재 필터 CSS 스트링 계산
-  getCSSFilterString() {
-    const preset = FILTER_PRESETS.find(p => p.id === this.currentPreset);
-    const sepia = preset ? preset.settings.sepia : 0;
-    const grayscale = preset ? preset.settings.grayscale : 0;
-    const hue = preset ? preset.settings.hueRotate : 0;
+  // 현재 선택된 사진의 보정 설정을 전체 사진에 일괄 복사/적용
+  applyToAllPhotos(sourcePhotoIdx) {
+    const src = this.getSettings(sourcePhotoIdx);
+    this.photoSettings = this.photoSettings.map(() => ({ ...src }));
+  }
 
-    const b = this.customAdjustments.brightness / 100;
-    const c = this.customAdjustments.contrast / 100;
-    const s = this.customAdjustments.saturation / 100;
+  // 특정 사진의 CSS 필터 문자열 계산
+  getFilterStringForPhoto(photoIdx) {
+    const s = this.getSettings(photoIdx);
+    const b = s.brightness / 100;
+    const c = s.contrast / 100;
+    const sat = s.saturation / 100;
 
-    let filter = `brightness(${b}) contrast(${c}) saturate(${s})`;
-    if (sepia > 0) filter += ` sepia(${sepia / 100})`;
-    if (grayscale > 0) filter += ` grayscale(${grayscale / 100})`;
-    if (hue !== 0) filter += ` hue-rotate(${hue}deg)`;
+    let filter = `brightness(${b}) contrast(${c}) saturate(${sat})`;
+    if (s.sepia > 0) filter += ` sepia(${s.sepia / 100})`;
+    if (s.grayscale > 0) filter += ` grayscale(${s.grayscale / 100})`;
+    if (s.hueRotate !== 0) filter += ` hue-rotate(${s.hueRotate}deg)`;
 
     return filter;
   }
@@ -123,14 +142,11 @@ export class PhotoEditor {
   togglePhotoSelection(photoIndex) {
     const existingSlotIdx = this.selectedIndices.indexOf(photoIndex);
     if (existingSlotIdx > -1) {
-      // 이미 선택됨 -> 해제
       this.selectedIndices.splice(existingSlotIdx, 1);
     } else {
-      // 선택 추가 (슬롯 개수 이하일 때만)
       if (this.selectedIndices.length < this.slotCount) {
         this.selectedIndices.push(photoIndex);
       } else {
-        // 이미 꽉 찬 경우 마지막 것을 교체
         this.selectedIndices[this.selectedIndices.length - 1] = photoIndex;
       }
     }
@@ -150,8 +166,14 @@ export class PhotoEditor {
     return [...this.selectedIndices];
   }
 
-  // 슬롯에 배치될 최종 이미지 목록 (DataURL)
-  getSelectedPhotos() {
-    return this.selectedIndices.map(idx => this.rawShots[idx]).filter(Boolean);
+  // 슬롯에 배치될 최종 이미지 목록과 각각의 필터 반환
+  getSelectedPhotosWithFilters() {
+    return this.selectedIndices.map(rawIdx => {
+      return {
+        photoSrc: this.rawShots[rawIdx],
+        filterString: this.getFilterStringForPhoto(rawIdx),
+        rawIndex: rawIdx
+      };
+    }).filter(item => Boolean(item.photoSrc));
   }
 }

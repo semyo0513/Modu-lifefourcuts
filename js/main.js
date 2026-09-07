@@ -23,7 +23,6 @@ class App {
     this.finalComposite = null; // { canvas, dataUrl, blob }
     this.adminUploadedFileBase64 = null;
     this.pendingAuthAction = null; // 'admin' or 'settings'
-    this.spreadsheetUrl = null;
     this.currentInspectedIndex = 0; // 대형 뷰에서 보고 있는 사진 인덱스 (0~5)
 
     this.initElements();
@@ -82,6 +81,8 @@ class App {
     this.valBrightness = document.getElementById('val-brightness');
     this.valContrast = document.getElementById('val-contrast');
     this.valSaturation = document.getElementById('val-saturation');
+    this.targetPhotoBadge = document.getElementById('editor-target-photo-badge');
+    this.btnApplyAllFilters = document.getElementById('btn-apply-all-filters');
     this.editorThumbnails = document.getElementById('editor-thumbnails');
     this.editorSlots = document.getElementById('editor-slots');
     this.slotCountNotice = document.getElementById('slot-count-notice');
@@ -154,15 +155,16 @@ class App {
       this.startCameraShootingSequence();
     });
 
-    // Editor controls
+    // Editor controls (개별 사진 보정 실시간 업데이트)
     const updateSliders = () => {
       this.valBrightness.textContent = `${this.sliderBrightness.value}%`;
       this.valContrast.textContent = `${this.sliderContrast.value}%`;
       this.valSaturation.textContent = `${this.sliderSaturation.value}%`;
 
-      this.editor.setAdjustment('brightness', this.sliderBrightness.value);
-      this.editor.setAdjustment('contrast', this.sliderContrast.value);
-      this.editor.setAdjustment('saturation', this.sliderSaturation.value);
+      this.editor.setAdjustmentForPhoto(this.currentInspectedIndex, 'brightness', this.sliderBrightness.value);
+      this.editor.setAdjustmentForPhoto(this.currentInspectedIndex, 'contrast', this.sliderContrast.value);
+      this.editor.setAdjustmentForPhoto(this.currentInspectedIndex, 'saturation', this.sliderSaturation.value);
+
       this.updateEditorPreviewStyles();
     };
 
@@ -172,10 +174,18 @@ class App {
 
     document.getElementById('btn-reset-filters')?.addEventListener('click', () => {
       sound.playClick();
-      this.editor.applyPreset('original');
+      this.editor.applyPresetToPhoto(this.currentInspectedIndex, 'original');
       this.syncSliderUIFromEditor();
       this.renderFilterPresets();
       this.updateEditorPreviewStyles();
+    });
+
+    // 전체 사진 일괄 적용 버튼
+    this.btnApplyAllFilters?.addEventListener('click', () => {
+      sound.playClick();
+      this.editor.applyToAllPhotos(this.currentInspectedIndex);
+      this.updateEditorPreviewStyles();
+      alert(`🎉 ${this.currentInspectedIndex + 1}번 사진의 보정 설정이 6장 전체에 일괄 적용되었습니다!`);
     });
 
     // Large Inspector Navigations
@@ -199,9 +209,9 @@ class App {
 
     // Editor -> Preview (최종 합성)
     document.getElementById('btn-editor-done')?.addEventListener('click', async () => {
-      const selected = this.editor.getSelectedPhotos();
-      if (selected.length < this.selectedFrame.slotCount) {
-        alert(`사진을 ${this.selectedFrame.slotCount}장 모두 선택해 주세요! (현재 ${selected.length}장 선택됨)`);
+      const selectedWithFilters = this.editor.getSelectedPhotosWithFilters();
+      if (selectedWithFilters.length < this.selectedFrame.slotCount) {
+        alert(`사진을 ${this.selectedFrame.slotCount}장 모두 선택해 주세요! (현재 ${selectedWithFilters.length}장 선택됨)`);
         return;
       }
       sound.playClick();
@@ -447,7 +457,7 @@ class App {
         <div class="frame-thumb-wrap">
           <img src="${frame.file}" alt="${frame.name}" class="frame-thumb-img" onerror="this.style.opacity=0.3" />
           <span class="slot-badge">${frame.slotCount}컷</span>
-          ${frame.isCustom ? '<span style="position:absolute; bottom:8px; left:8px; background:#ff5e8e; color:#fff; font-size:0.7rem; padding:2px 6px; border-radius:4px;">☁️ 드라이브</span>' : ''}
+          ${frame.isCustom ? '<span style="position:absolute; bottom:6px; left:6px; background:#ff5e8e; color:#fff; font-size:0.68rem; padding:2px 6px; border-radius:4px;">☁️ 드라이브</span>' : ''}
         </div>
         <div class="frame-card-info">
           <h4>${frame.name}</h4>
@@ -532,27 +542,30 @@ class App {
 
   // 3. 편집기(보정 & 선택/배치) 셋업
   setupEditorStep() {
-    this.slotCountNotice.textContent = `선택한 프레임 규격: ${this.selectedFrame.name} (${this.selectedFrame.slotCount}컷 필요)`;
+    this.slotCountNotice.textContent = `선택한 프레임: ${this.selectedFrame.name} (${this.selectedFrame.slotCount}컷 필요)`;
     this.currentInspectedIndex = 0;
     this.renderFilterPresets();
     this.syncSliderUIFromEditor();
     this.renderEditorThumbnailsAndSlots();
     this.updateInspectorView();
+    this.updateEditorPreviewStyles();
   }
 
   renderFilterPresets() {
     if (!this.presetListEl) return;
     this.presetListEl.innerHTML = '';
 
+    const currentPhotoSettings = this.editor.getSettings(this.currentInspectedIndex);
+
     FILTER_PRESETS.forEach(preset => {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = `preset-btn ${this.editor.currentPreset === preset.id ? 'active' : ''}`;
+      btn.className = `preset-btn ${currentPhotoSettings.preset === preset.id ? 'active' : ''}`;
       btn.innerHTML = `<span>${preset.icon}</span> <span>${preset.name}</span>`;
 
       btn.addEventListener('click', () => {
         sound.playClick();
-        this.editor.applyPreset(preset.id);
+        this.editor.applyPresetToPhoto(this.currentInspectedIndex, preset.id);
         this.syncSliderUIFromEditor();
         this.renderFilterPresets();
         this.updateEditorPreviewStyles();
@@ -563,19 +576,37 @@ class App {
   }
 
   syncSliderUIFromEditor() {
-    this.sliderBrightness.value = this.editor.customAdjustments.brightness;
-    this.sliderContrast.value = this.editor.customAdjustments.contrast;
-    this.sliderSaturation.value = this.editor.customAdjustments.saturation;
+    const s = this.editor.getSettings(this.currentInspectedIndex);
+    this.sliderBrightness.value = s.brightness;
+    this.sliderContrast.value = s.contrast;
+    this.sliderSaturation.value = s.saturation;
 
-    this.valBrightness.textContent = `${this.sliderBrightness.value}%`;
-    this.valContrast.textContent = `${this.sliderContrast.value}%`;
-    this.valSaturation.textContent = `${this.sliderSaturation.value}%`;
+    this.valBrightness.textContent = `${s.brightness}%`;
+    this.valContrast.textContent = `${s.contrast}%`;
+    this.valSaturation.textContent = `${s.saturation}%`;
   }
 
+  // 각 사진의 개별 필터를 모든 썸네일과 대형 뷰에 동기화
   updateEditorPreviewStyles() {
-    const filterStyle = this.editor.getCSSFilterString();
-    document.querySelectorAll('.editor-preview-img').forEach(img => {
-      img.style.filter = filterStyle;
+    // 1. 대형 인스펙터 뷰 필터 적용
+    if (this.largePreviewImg) {
+      this.largePreviewImg.style.filter = this.editor.getFilterStringForPhoto(this.currentInspectedIndex);
+    }
+
+    // 2. 6장 풀 썸네일 필터 적용
+    document.querySelectorAll('.pool-thumb-img').forEach(img => {
+      const idx = Number(img.dataset.photoIdx);
+      if (!isNaN(idx)) {
+        img.style.filter = this.editor.getFilterStringForPhoto(idx);
+      }
+    });
+
+    // 3. 슬롯 카드 썸네일 필터 적용
+    document.querySelectorAll('.slot-thumb-img').forEach(img => {
+      const idx = Number(img.dataset.photoIdx);
+      if (!isNaN(idx)) {
+        img.style.filter = this.editor.getFilterStringForPhoto(idx);
+      }
     });
   }
 
@@ -586,7 +617,11 @@ class App {
     const currentShot = this.editor.rawShots[this.currentInspectedIndex];
     if (currentShot) {
       this.largePreviewImg.src = currentShot;
-      this.largePreviewImg.style.filter = this.editor.getCSSFilterString();
+      this.largePreviewImg.style.filter = this.editor.getFilterStringForPhoto(this.currentInspectedIndex);
+    }
+
+    if (this.targetPhotoBadge) {
+      this.targetPhotoBadge.textContent = `[ ${this.currentInspectedIndex + 1}번 사진 보정 중 ]`;
     }
 
     if (this.inspectorIndexText) {
@@ -601,14 +636,17 @@ class App {
         this.inspectorSelectLabel.textContent = '프레임 슬롯에 담기 ➕';
       }
     }
+
+    this.syncSliderUIFromEditor();
+    this.renderFilterPresets();
   }
 
   setInspectedPhoto(idx) {
     if (idx >= 0 && idx < this.editor.rawShots.length) {
       this.currentInspectedIndex = idx;
       this.updateInspectorView();
-      // 대형 인스펙터로 부드럽게 스크롤
-      document.getElementById('editor-inspector-card')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      this.renderEditorThumbnailsAndSlots();
+      this.updateEditorPreviewStyles();
     }
   }
 
@@ -617,6 +655,8 @@ class App {
     if (total === 0) return;
     this.currentInspectedIndex = (this.currentInspectedIndex + delta + total) % total;
     this.updateInspectorView();
+    this.renderEditorThumbnailsAndSlots();
+    this.updateEditorPreviewStyles();
   }
 
   renderEditorThumbnailsAndSlots() {
@@ -629,9 +669,9 @@ class App {
 
       const item = document.createElement('div');
       item.className = `editor-pool-item ${isSelected ? 'selected' : ''} ${isInspected ? 'inspected' : ''}`;
-      item.title = `더블클릭: 대형 확대 뷰로 보기 | 클릭: 슬롯 담기/해제`;
+      item.title = `더블클릭: 대형 뷰로 확인 | 클릭: 슬롯 담기/해제`;
       item.innerHTML = `
-        <img src="${shotSrc}" class="editor-preview-img" alt="Shot ${idx + 1}" />
+        <img src="${shotSrc}" class="editor-preview-img pool-thumb-img" data-photo-idx="${idx}" alt="Shot ${idx + 1}" />
         <div class="pool-badge">${isSelected ? `#${slotIndex + 1}` : `${idx + 1}`}</div>
       `;
 
@@ -666,8 +706,8 @@ class App {
       if (hasPhoto) {
         slotEl.innerHTML = `
           <div class="slot-header">슬롯 ${slotIdx + 1}</div>
-          <div class="slot-img-wrap" title="더블클릭: 대형 확대 뷰로 보기">
-            <img src="${this.editor.rawShots[photoIdx]}" class="editor-preview-img" alt="Slot ${slotIdx + 1}" />
+          <div class="slot-img-wrap" title="더블클릭: 대형 뷰로 보기">
+            <img src="${this.editor.rawShots[photoIdx]}" class="editor-preview-img slot-thumb-img" data-photo-idx="${photoIdx}" alt="Slot ${slotIdx + 1}" />
           </div>
           <div class="slot-controls">
             <button class="btn-slot-nav" data-dir="left" ${slotIdx === 0 ? 'disabled' : ''} title="앞으로 이동">◀</button>
@@ -701,7 +741,7 @@ class App {
           <div class="slot-header">슬롯 ${slotIdx + 1}</div>
           <div class="slot-empty-placeholder">
             <span>➕</span>
-            <p>위 6장에서 사진을 선택해 주세요</p>
+            <p>사진을 선택해 주세요</p>
           </div>
         `;
       }
@@ -710,19 +750,17 @@ class App {
     }
   }
 
-  // 4. 미리보기 및 최종 합성
+  // 4. 미리보기 및 최종 합성 (각 사진별 개별 필터 반영)
   async setupPreviewStep() {
     this.previewLoadingEl.style.display = 'flex';
     this.previewImageEl.style.display = 'none';
 
-    const selectedPhotos = this.editor.getSelectedPhotos();
-    const filterString = this.editor.getCSSFilterString();
+    const selectedPhotosWithFilters = this.editor.getSelectedPhotosWithFilters();
 
     try {
       this.finalComposite = await this.compositor.composite({
         frameMeta: this.selectedFrame,
-        photos: selectedPhotos,
-        filterString: filterString,
+        photos: selectedPhotosWithFilters,
         addDateStamp: true
       });
 

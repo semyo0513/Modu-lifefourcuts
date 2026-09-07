@@ -6,7 +6,10 @@
   <title>모두의 네컷 사진 - 인생네컷 포토부스 웹앱</title>
   <meta name="description" content="프레임 선택부터 6컷 촬영, 보정/선택, 인쇄 및 이메일 전송까지 지원하는 브라우저 기반 포토부스 웹앱" />
 
-  <!-- 웹 폰트 (Pretendard & Noto Sans KR) -->
+  <!-- 구글 화려한 디스플레이 폰트 (Black Han Sans & Jua) 및 Pretendard -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Jua&family=Noto+Sans+KR:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 
   <!-- EmailJS SDK -->
@@ -20,18 +23,19 @@
   <!-- 헤더 네비게이션 -->
   <header class="app-header">
     <button id="header-logo-btn" class="logo-btn" title="처음으로 이동">
+      <span class="logo-icon-sparkle">✨</span>
       <span class="logo-icon">📸</span>
       <span class="logo-text">모두의 네컷 사진</span>
     </button>
     <div class="header-actions">
       <button id="btn-open-samples" class="btn-icon" title="프레임 제작 가이드 및 샘플 다운로드">
-        <span>📥</span> <span>템플릿 다운로드</span>
+        <span>📥</span> <span class="btn-text-hide-mobile">템플릿 다운로드</span>
       </button>
       <button id="btn-open-admin" class="btn-icon" title="관리자 프레임 등록 및 관리">
-        <span>🔒</span> <span>관리자</span>
+        <span>🔒</span> <span class="btn-text-hide-mobile">관리자</span>
       </button>
       <button id="btn-open-settings" class="btn-icon" title="앱스스크립트 및 환경 설정">
-        <span>⚙️</span> <span>설정</span>
+        <span>⚙️</span> <span class="btn-text-hide-mobile">설정</span>
       </button>
     </div>
   </header>
@@ -133,18 +137,18 @@
 
     <!-- 4단계: 보정 및 사진 선택·순서 설정 화면 (Editor) -->
     <section id="step-editor" class="step-screen">
-      <div class="section-header">
+      <div class="section-header compact">
         <h2>보정 & 사진 선택 (Edit & Arrange)</h2>
         <p id="slot-count-notice">선택한 프레임에 넣을 사진을 선택하고 순서를 지정해 주세요.</p>
       </div>
 
       <div class="editor-layout">
-        <!-- 좌측 사이드바: 필터 프리셋 & 미세 보정 -->
+        <!-- 좌측 사이드바: 필터 프리셋 & 미세 보정 & 일괄 적용 -->
         <aside class="editor-sidebar">
           <div>
             <div class="editor-section-title">
-              <span>필터 프리셋</span>
-              <button id="btn-reset-filters" class="btn-icon" style="padding: 4px 8px; font-size: 0.75rem;">초기화</button>
+              <span id="editor-target-photo-badge" style="color: var(--accent-pink); font-size: 0.85rem; font-weight: 700;">[1번 사진 보정 중]</span>
+              <button id="btn-reset-filters" class="btn-icon" style="padding: 3px 8px; font-size: 0.75rem;">초기화</button>
             </div>
             <div id="preset-list" class="preset-grid">
               <!-- editor.js에서 프리셋 버튼 생성 -->
@@ -152,7 +156,7 @@
           </div>
 
           <div class="slider-group">
-            <div class="editor-section-title">미세 보정</div>
+            <div class="editor-section-title" style="margin-bottom: 2px;">미세 보정</div>
 
             <div class="slider-item">
               <div class="slider-label">
@@ -178,6 +182,11 @@
               <input type="range" id="slider-saturation" min="0" max="200" value="100" />
             </div>
           </div>
+
+          <!-- 전체 사진 일괄 적용 버튼 -->
+          <button type="button" id="btn-apply-all-filters" class="btn-secondary btn-apply-all" title="현재 사진의 보정 설정을 촬영된 모든 6장에 일괄 적용">
+            <span>🌟 현재 보정을 모든 사진에 일괄 적용</span>
+          </button>
         </aside>
 
         <!-- 우측 메인 패널: 대형 확대 보정 뷰 & 사진 선택 풀 & 프레임 슬롯 순서 -->
@@ -190,8 +199,8 @@
                 <span id="inspector-index-text" style="font-size: 0.95rem; font-weight: 700; color: var(--accent-pink);">1 / 6 번째 사진</span>
               </div>
               <div class="inspector-actions">
-                <button type="button" id="btn-inspector-prev" class="btn-icon" title="이전 사진">◀ 이전 사진</button>
-                <button type="button" id="btn-inspector-next" class="btn-icon" title="다음 사진">다음 사진 ▶</button>
+                <button type="button" id="btn-inspector-prev" class="btn-icon" title="이전 사진">◀ 이전</button>
+                <button type="button" id="btn-inspector-next" class="btn-icon" title="다음 사진">다음 ▶</button>
                 <button type="button" id="btn-inspector-toggle-select" class="btn-icon" style="background: var(--accent-gradient); border: none; font-weight: 600; color: #fff;">
                   <span id="inspector-select-label">프레임 슬롯에 담기 ➕</span>
                 </button>
@@ -201,16 +210,12 @@
             <div class="inspector-img-container">
               <img id="editor-large-preview-img" class="editor-preview-img" alt="Large Live Preview" />
             </div>
-
-            <div class="inspector-footer">
-              <span>💡 아래 사진 썸네일을 <b>더블 클릭</b>하면 해당 사진을 즉시 크게 띄워 보정 효과를 확인할 수 있습니다.</span>
-            </div>
           </div>
 
           <!-- 촬영된 6장 사진 풀 -->
           <div class="pool-container">
             <div class="editor-section-title">
-              <span>촬영된 6장 사진 목록 (클릭: 선택/해제 | 더블클릭: 대형 확대 뷰)</span>
+              <span>촬영된 6장 사진 (클릭: 슬롯 담기 | 더블클릭: 대형 뷰)</span>
             </div>
             <div id="editor-thumbnails" class="pool-grid"></div>
           </div>
@@ -218,12 +223,12 @@
           <!-- 프레임 슬롯 및 순서 변경 -->
           <div class="slots-container">
             <div class="editor-section-title">
-              <span>프레임 슬롯 배치 (화살표: 순서 이동 | 더블클릭: 대형 확대 뷰)</span>
+              <span>프레임 슬롯 배치 (화살표: 위치 이동 | 더블클릭: 대형 뷰)</span>
             </div>
             <div id="editor-slots" class="slots-grid"></div>
           </div>
 
-          <div class="action-bar" style="justify-content: flex-end;">
+          <div class="action-bar compact-action-bar">
             <button id="btn-editor-done" class="btn-primary">
               <span>최종 완성본 만들기</span>
               <span>✨</span>
@@ -235,7 +240,7 @@
 
     <!-- 5단계: 최종 완성본 미리보기 및 인쇄/전송 화면 (Preview & Output) -->
     <section id="step-preview" class="step-screen">
-      <div class="section-header">
+      <div class="section-header compact">
         <h2>🎉 네컷 사진 완성! (Completed)</h2>
         <p>인쇄하거나 이메일 전송, 이미지 파일 다운로드를 진행하세요.</p>
       </div>
@@ -253,15 +258,15 @@
           <button id="btn-print" class="btn-primary-large" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); box-shadow: 0 0 25px rgba(16, 185, 129, 0.3);">
             <span>🖨️ 인쇄하기 (Print)</span>
           </button>
-          <button id="btn-download" class="btn-secondary" style="font-size: 1.05rem; padding: 14px 24px;">
+          <button id="btn-download" class="btn-secondary" style="font-size: 1rem; padding: 12px 20px;">
             <span>💾 기기에 저장</span>
           </button>
-          <button id="btn-email" class="btn-secondary" style="font-size: 1.05rem; padding: 14px 24px;">
+          <button id="btn-email" class="btn-secondary" style="font-size: 1rem; padding: 12px 20px;">
             <span>💌 이메일로 받기</span>
           </button>
         </div>
 
-        <div class="action-bar" style="margin-top: 16px;">
+        <div class="action-bar" style="margin-top: 10px;">
           <button id="btn-retake" class="btn-icon">
             <span>🔄 다시 촬영</span>
           </button>
@@ -273,6 +278,11 @@
     </section>
 
   </main>
+
+  <!-- 하단 저작권 푸터 -->
+  <footer class="app-footer">
+    ⓒ 2026. 창순기획 Co. All rights reserved.
+  </footer>
 
   <!-- 숨겨진 파일 업로드 입력창 (폴백용) -->
   <input type="file" id="file-upload-input" accept="image/*" multiple style="display: none;" />
