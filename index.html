@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>모두의 네컷 사진 - 인생네컷 포토부스 웹앱</title>
+  <meta name="description" content="프레임 선택부터 6컷 촬영, 보정/선택, 인쇄 및 이메일 전송까지 지원하는 브라우저 기반 포토부스 웹앱" />
+
+  <!-- 웹 폰트 (Pretendard & Noto Sans KR) -->
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+
+  <!-- EmailJS SDK -->
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
+  <!-- 스타일시트 -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- 헤더 네비게이션 -->
+  <header class="app-header">
+    <button id="header-logo-btn" class="logo-btn" title="처음으로 이동">
+      <span class="logo-icon">📸</span>
+      <span class="logo-text">모두의 네컷 사진</span>
+    </button>
+    <div class="header-actions">
+      <button id="btn-open-settings" class="btn-icon" title="이메일 전송 및 환경 설정">
+        <span>⚙️</span> <span>설정</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 메인 컨테이너 (스텝별 화면 전환) -->
+  <main class="app-main">
+
+    <!-- 1단계: 시작 화면 (Start) -->
+    <section id="step-start" class="step-screen active-step">
+      <div class="hero-wrapper">
+        <div class="hero-badge">✨ Everyone's Four Cuts Photo Booth</div>
+        <h1 class="hero-title">
+          지금 이 순간을<br />
+          <span class="highlight">모두의 네컷 사진</span>으로 남기세요
+        </h1>
+        <p class="hero-desc">
+          프레임 선택부터 6컷 연속 촬영, 뽀샤시 보정, 그리고 실물 인쇄와 이메일 전송까지 한 번에 즐기는 웹 포토부스입니다.
+        </p>
+
+        <div class="hero-features">
+          <div class="feature-tag">📸 6컷 연속 촬영</div>
+          <div class="feature-tag">🌸 뽀샤시 & 필터 보정</div>
+          <div class="feature-tag">🎨 감성 프레임 선택</div>
+          <div class="feature-tag">🖨️ 2x6 포토 스트립 인쇄</div>
+          <div class="feature-tag">💌 이메일 전송 지원</div>
+        </div>
+
+        <button id="btn-start-app" class="btn-primary-large">
+          <span>촬영 시작하기</span>
+          <span>✨</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 2단계: 프레임 선택 화면 (Frame Selection) -->
+    <section id="step-frame" class="step-screen">
+      <div class="section-header">
+        <h2>프레임 선택 (Frame Select)</h2>
+        <p>마음에 드는 포토부스 프레임 디자인을 하나 골라주세요.</p>
+      </div>
+
+      <div id="frame-list" class="frame-gallery">
+        <!-- frames.json을 통해 동적으로 프레임 카드 렌더링 -->
+      </div>
+
+      <div class="action-bar">
+        <button id="btn-frame-next" class="btn-primary">
+          <span>이 프레임으로 촬영하기</span>
+          <span>👉</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 3단계: 카메라 촬영 화면 (Camera & 6-shot Shooting) -->
+    <section id="step-camera" class="step-screen">
+      <div class="section-header">
+        <h2>6컷 순차 촬영 (Camera)</h2>
+        <p id="camera-progress-text">카메라 준비 완료 (총 6컷 촬영)</p>
+      </div>
+
+      <div class="camera-container">
+        <!-- 뷰포트 영역 -->
+        <div class="camera-viewport">
+          <video id="camera-video" autoplay playsinline muted></video>
+          <div id="camera-flash" class="camera-flash"></div>
+          <div id="countdown-overlay" class="countdown-overlay" style="display: none;">
+            <div id="countdown-text" class="countdown-number">3</div>
+          </div>
+        </div>
+
+        <!-- 카메라 조작 도구 모음 -->
+        <div class="camera-controls-bar">
+          <button id="btn-camera-flip" class="btn-icon" title="전/후면 카메라 전환">
+            <span>🔄</span> <span>카메라 전환</span>
+          </button>
+          <button id="btn-camera-mirror" class="btn-icon" title="좌우 반전 모드">
+            <span>🪞</span> <span>좌우 반전</span>
+          </button>
+          <button id="btn-camera-upload" class="btn-icon" title="카메라 대신 사진 파일 직접 업로드">
+            <span>📁</span> <span>사진 업로드</span>
+          </button>
+        </div>
+
+        <!-- 촬영된 컷 썸네일 스트립 -->
+        <div id="camera-thumbnails" class="camera-thumbs-strip"></div>
+
+        <!-- 촬영 시작 대형 버튼 -->
+        <div class="action-bar">
+          <button id="btn-start-shooting" class="btn-primary-large">
+            <span>촬영 시작 (3초 타이머)</span>
+            <span>📸</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4단계: 보정 및 사진 선택·순서 설정 화면 (Editor) -->
+    <section id="step-editor" class="step-screen">
+      <div class="section-header">
+        <h2>보정 & 사진 선택 (Edit & Arrange)</h2>
+        <p id="slot-count-notice">선택한 프레임에 넣을 사진을 선택하고 순서를 지정해 주세요.</p>
+      </div>
+
+      <div class="editor-layout">
+        <!-- 좌측 사이드바: 필터 프리셋 & 미세 보정 -->
+        <aside class="editor-sidebar">
+          <div>
+            <div class="editor-section-title">
+              <span>필터 프리셋</span>
+              <button id="btn-reset-filters" class="btn-icon" style="padding: 4px 8px; font-size: 0.75rem;">초기화</button>
+            </div>
+            <div id="preset-list" class="preset-grid">
+              <!-- editor.js에서 프리셋 버튼 생성 -->
+            </div>
+          </div>
+
+          <div class="slider-group">
+            <div class="editor-section-title">미세 보정</div>
+
+            <div class="slider-item">
+              <div class="slider-label">
+                <span>밝기 (Brightness)</span>
+                <span id="val-brightness">100%</span>
+              </div>
+              <input type="range" id="slider-brightness" min="60" max="150" value="100" />
+            </div>
+
+            <div class="slider-item">
+              <div class="slider-label">
+                <span>대비 (Contrast)</span>
+                <span id="val-contrast">100%</span>
+              </div>
+              <input type="range" id="slider-contrast" min="60" max="150" value="100" />
+            </div>
+
+            <div class="slider-item">
+              <div class="slider-label">
+                <span>채도 (Saturation)</span>
+                <span id="val-saturation">100%</span>
+              </div>
+              <input type="range" id="slider-saturation" min="0" max="200" value="100" />
+            </div>
+          </div>
+        </aside>
+
+        <!-- 우측 메인 패널: 사진 선택 풀 & 프레임 슬롯 순서 -->
+        <div class="editor-main-panel">
+          <!-- 촬영된 6장 사진 풀 -->
+          <div class="pool-container">
+            <div class="editor-section-title">촬영된 6장 중 선택 (클릭하여 담기/해제)</div>
+            <div id="editor-thumbnails" class="pool-grid"></div>
+          </div>
+
+          <!-- 프레임 슬롯 및 순서 변경 -->
+          <div class="slots-container">
+            <div class="editor-section-title">프레임 슬롯 배치 (화살표로 순서 변경)</div>
+            <div id="editor-slots" class="slots-grid"></div>
+          </div>
+
+          <div class="action-bar" style="justify-content: flex-end;">
+            <button id="btn-editor-done" class="btn-primary">
+              <span>최종 완성본 만들기</span>
+              <span>✨</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5단계: 최종 완성본 미리보기 및 인쇄/전송 화면 (Preview & Output) -->
+    <section id="step-preview" class="step-screen">
+      <div class="section-header">
+        <h2>🎉 네컷 사진 완성! (Completed)</h2>
+        <p>인쇄하거나 이메일 전송, 이미지 파일 다운로드를 진행하세요.</p>
+      </div>
+
+      <div class="preview-container">
+        <div class="preview-stage">
+          <div id="preview-loading" class="loading-indicator">
+            <div class="spinner"></div>
+            <p>고해상도로 합성하고 있습니다...</p>
+          </div>
+          <img id="preview-final-image" alt="Final Four Cut Photo" style="display: none;" />
+        </div>
+
+        <div class="preview-actions">
+          <button id="btn-print" class="btn-primary-large" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); box-shadow: 0 0 25px rgba(16, 185, 129, 0.3);">
+            <span>🖨️ 인쇄하기 (Print)</span>
+          </button>
+          <button id="btn-download" class="btn-secondary" style="font-size: 1.05rem; padding: 14px 24px;">
+            <span>💾 기기에 저장</span>
+          </button>
+          <button id="btn-email" class="btn-secondary" style="font-size: 1.05rem; padding: 14px 24px;">
+            <span>💌 이메일로 받기</span>
+          </button>
+        </div>
+
+        <div class="action-bar" style="margin-top: 16px;">
+          <button id="btn-retake" class="btn-icon">
+            <span>🔄 다시 촬영</span>
+          </button>
+          <button id="btn-restart" class="btn-icon">
+            <span>🏠 처음으로</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 숨겨진 파일 업로드 입력창 (폴백용) -->
+  <input type="file" id="file-upload-input" accept="image/*" multiple style="display: none;" />
+
+  <!-- 모달 1: 이메일 전송 모달 -->
+  <div id="email-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>💌 이메일로 네컷 사진 받기</h3>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <form id="form-email-send">
+        <div class="form-group">
+          <label for="input-to-email">받으실 이메일 주소</label>
+          <input type="email" id="input-to-email" class="form-input" placeholder="example@email.com" required />
+          <p class="form-helper">입력하신 이메일로 완성된 네컷 사진이 발송됩니다.</p>
+        </div>
+        <div id="email-status-msg" style="margin: 8px 0; font-size: 0.9rem;"></div>
+        <div class="action-bar" style="justify-content: flex-end; margin-top: 12px;">
+          <button type="button" class="btn-secondary modal-close-btn">취소</button>
+          <button type="submit" id="btn-submit-email" class="btn-primary">이메일 보내기</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 모달 2: 설정 모달 (EmailJS 키 설정) -->
+  <div id="settings-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>⚙️ 환경 설정 (Settings)</h3>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="form-group">
+        <label for="input-service-id">EmailJS Service ID</label>
+        <input type="text" id="input-service-id" class="form-input" placeholder="service_xxxxxxx" />
+      </div>
+      <div class="form-group">
+        <label for="input-template-id">EmailJS Template ID</label>
+        <input type="text" id="input-template-id" class="form-input" placeholder="template_xxxxxxx" />
+      </div>
+      <div class="form-group">
+        <label for="input-public-key">EmailJS Public Key</label>
+        <input type="text" id="input-public-key" class="form-input" placeholder="public_key_xxxxxxx" />
+        <p class="form-helper">EmailJS 계정의 API 키를 입력하시면 브라우저 로컬 저장소에 안전하게 보관됩니다.</p>
+      </div>
+      <div class="action-bar" style="justify-content: flex-end; margin-top: 12px;">
+        <button type="button" class="btn-secondary modal-close-btn">닫기</button>
+        <button type="button" id="btn-save-settings" class="btn-primary">설정 저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 스크립트 진입점 -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
