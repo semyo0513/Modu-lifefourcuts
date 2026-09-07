@@ -158,6 +158,43 @@ export class GasManager {
     }
     return result;
   }
+
+  // 5. 구글 시트 URL 및 관리자 정보 조회
+  async fetchAdminInfo() {
+    if (!this.isConfigured()) return null;
+    try {
+      const url = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}action=getAdminInfo&t=${Date.now()}`;
+      const res = await fetch(url, { method: 'GET' });
+      const data = await res.json();
+      if (data && data.status === 'ok') {
+        return data;
+      }
+    } catch (err) {
+      console.warn('fetchAdminInfo error:', err);
+    }
+    return null;
+  }
+
+  // 6. 관리자 설정 변경 로그 시트 기록
+  async saveSettingsLog({ settingName, settingDetails, newPin = null, adminPin = '1234' }) {
+    if (!this.isConfigured()) return;
+    try {
+      const payload = {
+        action: 'saveSettingsLog',
+        settingName: settingName,
+        settingDetails: settingDetails,
+        newPin: newPin,
+        adminPin: adminPin
+      };
+      await fetch(this.gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+    } catch (err) {
+      console.warn('saveSettingsLog error:', err);
+    }
+  }
 }
 
 export const gasManager = new GasManager();

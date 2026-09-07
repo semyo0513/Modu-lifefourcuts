@@ -94,25 +94,44 @@ class GuideDrawer {
   }
 }
 
-// 4컷 세로 스트립 제작 가이드 템플릿 (600x1800)
+// 1. 4컷 세로 스트립 제작 가이드 템플릿 (600x1800)
 const stripGuide = new GuideDrawer(600, 1800);
 stripGuide.fill(0, 0, 600, 1800, 230, 235, 245, 255); // 프레임 영역 (하늘빛 안내색)
 
-const slots = [
+const stripSlots = [
   { x: 40, y: 40, w: 520, h: 380 },
   { x: 40, y: 460, w: 520, h: 380 },
   { x: 40, y: 880, w: 520, h: 380 },
   { x: 40, y: 1300, w: 520, h: 380 }
 ];
 
-slots.forEach(s => {
-  stripGuide.drawChecker(s.x, s.y, s.w, s.h, 15); // 사진 영역을 투명 체크무늬로 표시
-  stripGuide.drawBorder(s.x, s.y, s.w, s.h, 3, 239, 68, 68, 255); // 붉은색 슬롯 경계선
+stripSlots.forEach(s => {
+  stripGuide.drawChecker(s.x, s.y, s.w, s.h, 15);
+  stripGuide.drawBorder(s.x, s.y, s.w, s.h, 3, 239, 68, 68, 255);
 });
-
-// 하단 문구/로고 가이드 영역
 stripGuide.fill(40, 1700, 520, 80, 200, 215, 235, 255);
 stripGuide.drawBorder(40, 1700, 520, 80, 2, 59, 130, 246, 255);
 
 fs.writeFileSync(path.resolve('frames/template_guide_strip.png'), stripGuide.toPNG());
 console.log('Template guide generated: frames/template_guide_strip.png');
+
+// 2. 2x2 그리드 가이드 템플릿 (1200x1600)
+const gridGuide = new GuideDrawer(1200, 1600);
+gridGuide.fill(0, 0, 1200, 1600, 230, 235, 245, 255);
+
+const gridSlots = [
+  { x: 50, y: 50, w: 530, h: 680 },
+  { x: 620, y: 50, w: 530, h: 680 },
+  { x: 50, y: 770, w: 530, h: 680 },
+  { x: 620, y: 770, w: 530, h: 680 }
+];
+
+gridSlots.forEach(s => {
+  gridGuide.drawChecker(s.x, s.y, s.w, s.h, 25);
+  gridGuide.drawBorder(s.x, s.y, s.w, s.h, 4, 139, 92, 246, 255);
+});
+gridGuide.fill(80, 1470, 1040, 100, 200, 215, 235, 255);
+gridGuide.drawBorder(80, 1470, 1040, 100, 3, 59, 130, 246, 255);
+
+fs.writeFileSync(path.resolve('frames/template_guide_grid.png'), gridGuide.toPNG());
+console.log('Template guide generated: frames/template_guide_grid.png');

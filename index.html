@@ -24,6 +24,9 @@
       <span class="logo-text">모두의 네컷 사진</span>
     </button>
     <div class="header-actions">
+      <button id="btn-open-samples" class="btn-icon" title="프레임 제작 가이드 및 샘플 다운로드">
+        <span>📥</span> <span>템플릿 다운로드</span>
+      </button>
       <button id="btn-open-admin" class="btn-icon" title="관리자 프레임 등록 및 관리">
         <span>🔒</span> <span>관리자</span>
       </button>
@@ -74,7 +77,10 @@
         <!-- frames.json 및 구글 드라이브 업로드 프레임이 동적으로 렌더링됩니다 -->
       </div>
 
-      <div class="action-bar">
+      <div class="action-bar" style="justify-content: space-between; align-items: center;">
+        <button id="btn-frame-samples-link" class="btn-icon">
+          <span>📥</span> <span>프레임 제작용 템플릿 받기</span>
+        </button>
         <button id="btn-frame-next" class="btn-primary">
           <span>이 프레임으로 촬영하기</span>
           <span>👉</span>
@@ -242,6 +248,27 @@
   <!-- 숨겨진 파일 업로드 입력창 (폴백용) -->
   <input type="file" id="file-upload-input" accept="image/*" multiple style="display: none;" />
 
+  <!-- 모달 0: 비밀번호 인증 모달 (관리자 및 설정 진입 전 필수) -->
+  <div id="auth-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 380px;">
+      <div class="modal-header">
+        <h3 id="auth-modal-title">🔒 관리자 비밀번호 확인</h3>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <form id="form-auth-check">
+        <div class="form-group">
+          <label for="auth-password-input">비밀번호 입력 (기본값: 1234)</label>
+          <input type="password" id="auth-password-input" class="form-input" placeholder="비밀번호를 입력하세요" autofocus required />
+        </div>
+        <div id="auth-error-msg" style="color: #ff5e8e; font-size: 0.85rem; margin-top: 4px;"></div>
+        <div class="action-bar" style="justify-content: flex-end; margin-top: 16px;">
+          <button type="button" class="btn-secondary modal-close-btn">취소</button>
+          <button type="submit" class="btn-primary">확인</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- 모달 1: 이메일 전송 모달 -->
   <div id="email-modal" class="modal-overlay">
     <div class="modal-card">
@@ -264,7 +291,7 @@
     </div>
   </div>
 
-  <!-- 모달 2: 설정 모달 (Google Apps Script URL & EmailJS 설정) -->
+  <!-- 모달 2: 설정 모달 (Google Apps Script URL & 비밀번호 변경 & EmailJS 설정) -->
   <div id="settings-modal" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
@@ -276,7 +303,13 @@
       <div class="form-group" style="background: rgba(255, 94, 142, 0.08); padding: 12px; border-radius: 8px; border: 1px solid rgba(255, 94, 142, 0.3);">
         <label for="input-gas-url" style="color: #ff5e8e; font-weight: 700;">Google Apps Script 웹 앱 URL (연동됨 ✅)</label>
         <input type="url" id="input-gas-url" class="form-input" value="https://script.google.com/macros/s/AKfycbwaJY0ltkGCjqbwOF8SKQHyPmcSUaP8CM9zgZxx6t4cm2nXQeMVm1KzAnaYX_mJ7G_1Rw/exec" placeholder="https://script.google.com/macros/s/.../exec" />
-        <p class="form-helper">구글 드라이브 프레임 저장과 Gmail 이메일 발송이 자동 연동되어 있습니다.</p>
+        <p class="form-helper">구글 드라이브 프레임 저장과 Gmail 이메일 발송, 시트 로그가 자동 연동되어 있습니다.</p>
+      </div>
+
+      <!-- 관리자 비밀번호 변경 -->
+      <div class="form-group">
+        <label for="input-change-admin-pin">관리자 비밀번호 변경</label>
+        <input type="password" id="input-change-admin-pin" class="form-input" placeholder="새 비밀번호 (미입력시 유지)" />
       </div>
 
       <hr style="border: none; border-top: 1px solid var(--border-color); margin: 6px 0;" />
@@ -307,17 +340,22 @@
     </div>
   </div>
 
-  <!-- 모달 3: 관리자 모드 - 프레임 업로드 & 관리 모달 -->
+  <!-- 모달 3: 관리자 모드 - 프레임 업로드 & 구글 시트 확인 -->
   <div id="admin-modal" class="modal-overlay">
-    <div class="modal-card" style="max-width: 540px;">
+    <div class="modal-card" style="max-width: 560px;">
       <div class="modal-header">
-        <h3>🔒 관리자 모드: 프레임 업로드 (구글 드라이브)</h3>
+        <h3>🔒 관리자 모드: 프레임 업로드 & 시트 기록</h3>
         <button class="modal-close-btn">&times;</button>
       </div>
 
-      <div class="form-group">
-        <label for="admin-pin-input">관리자 비밀번호 (기본값: 1234)</label>
-        <input type="password" id="admin-pin-input" class="form-input" value="1234" />
+      <!-- 구글 시트 바로가기 버튼 -->
+      <div style="display: flex; gap: 8px; margin-bottom: 6px;">
+        <button id="btn-open-google-sheet" class="btn-icon" style="flex: 1; background: rgba(16, 185, 129, 0.15); border-color: #10b981; color: #10b981; font-weight: 600; padding: 10px;">
+          <span>📊</span> <span>구글 스프레드시트 기록장 열기</span>
+        </button>
+        <button id="btn-admin-samples-download" class="btn-icon" style="flex: 1; padding: 10px;">
+          <span>📥</span> <span>제작 템플릿 받기</span>
+        </button>
       </div>
 
       <div class="form-group">
@@ -354,7 +392,7 @@
       <div class="action-bar" style="justify-content: flex-end; margin-top: 12px;">
         <button type="button" class="btn-secondary modal-close-btn">닫기</button>
         <button type="button" id="btn-admin-upload-frame" class="btn-primary">
-          <span>구글 드라이브에 저장</span>
+          <span>구글 드라이브 및 시트에 저장</span>
           <span>☁️</span>
         </button>
       </div>
@@ -365,6 +403,59 @@
         <div id="admin-custom-frames-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 150px; overflow-y: auto;">
           <p style="font-size: 0.8rem; color: var(--text-muted);">등록된 프레임이 없습니다.</p>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 모달 4: 프레임 제작 템플릿 및 샘플 다운로드 모달 -->
+  <div id="samples-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3>📥 프레임 가이드 템플릿 & 샘플 다운로드</h3>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+
+      <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.5;">
+        포토샵, 캔바(Canva), 피그마에서 아래 가이드 템플릿을 열어 배경 레이어로 두고 디자인하시면 슬롯 위치와 크기를 정확하게 맞추실 수 있습니다.
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+        <!-- 4컷 세로 템플릿 -->
+        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+          <div>
+            <div style="font-weight: 700; font-size: 0.95rem;">📐 4컷 세로 스트립 가이드 템플릿</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">600 × 1800 px (표준 인생네컷 1:3 비율)</div>
+          </div>
+          <a href="frames/template_guide_strip.png" download="4cut_strip_template_600x1800.png" class="btn-icon" style="background: var(--accent-pink); color: #fff; border: none; font-weight: 600;">
+            <span>다운로드</span>
+          </a>
+        </div>
+
+        <!-- 2x2 그리드 템플릿 -->
+        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+          <div>
+            <div style="font-weight: 700; font-size: 0.95rem;">📐 2x2 와이드 그리드 가이드 템플릿</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">1200 × 1600 px (3:4 와이드 비율)</div>
+          </div>
+          <a href="frames/template_guide_grid.png" download="2x2_grid_template_1200x1600.png" class="btn-icon" style="background: var(--accent-purple); color: #fff; border: none; font-weight: 600;">
+            <span>다운로드</span>
+          </a>
+        </div>
+
+        <!-- 샘플 프레임 모음 -->
+        <div style="background: var(--bg-primary); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+          <div style="font-weight: 700; font-size: 0.9rem; margin-bottom: 8px;">🎨 기본 샘플 프레임 PNG 다운로드</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <a href="frames/frame_pink.png" download="sample_frame_pink.png" class="btn-icon" style="font-size: 0.8rem;">핑크 리본</a>
+            <a href="frames/frame_mono.png" download="sample_frame_mono.png" class="btn-icon" style="font-size: 0.8rem;">모던 모노</a>
+            <a href="frames/frame_retro.png" download="sample_frame_retro.png" class="btn-icon" style="font-size: 0.8rem;">빈티지 필름</a>
+            <a href="frames/frame_grid.png" download="sample_frame_grid.png" class="btn-icon" style="font-size: 0.8rem;">파스텔 그리드</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-bar" style="justify-content: flex-end; margin-top: 14px;">
+        <button type="button" class="btn-secondary modal-close-btn">닫기</button>
       </div>
     </div>
   </div>

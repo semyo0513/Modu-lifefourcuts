@@ -22,6 +22,8 @@ class App {
 
     this.finalComposite = null; // { canvas, dataUrl, blob }
     this.adminUploadedFileBase64 = null;
+    this.pendingAuthAction = null; // 'admin' or 'settings'
+    this.spreadsheetUrl = null;
 
     this.initElements();
     this.bindEvents();
@@ -31,6 +33,22 @@ class App {
     await this.loadFrames();
     this.renderFilterPresets();
     this.goToStep('start');
+  }
+
+  getAdminPin() {
+    try {
+      return localStorage.getItem('life4cut_admin_pin') || '1234';
+    } catch (e) {
+      return '1234';
+    }
+  }
+
+  setAdminPin(pin) {
+    if (pin && pin.trim()) {
+      try {
+        localStorage.setItem('life4cut_admin_pin', pin.trim());
+      } catch (e) {}
+    }
   }
 
   initElements() {
@@ -72,9 +90,11 @@ class App {
     this.previewLoadingEl = document.getElementById('preview-loading');
 
     // Modals
+    this.authModal = document.getElementById('auth-modal');
     this.emailModal = document.getElementById('email-modal');
     this.settingsModal = document.getElementById('settings-modal');
     this.adminModal = document.getElementById('admin-modal');
+    this.samplesModal = document.getElementById('samples-modal');
     this.fileUploadInput = document.getElementById('file-upload-input');
   }
 
@@ -206,23 +226,49 @@ class App {
       }
     });
 
-    // Settings Modal
-    document.getElementById('btn-open-settings')?.addEventListener('click', () => {
-      sound.playClick();
-      this.openSettingsModal();
-    });
-
-    document.getElementById('btn-save-settings')?.addEventListener('click', () => {
-      sound.playClick();
-      this.saveSettingsModal();
-    });
-
-    // Admin Modal
+    // 🔒 비밀번호 인증 기반 관리자 / 설정 열기
     document.getElementById('btn-open-admin')?.addEventListener('click', () => {
       sound.playClick();
-      this.openAdminModal();
+      this.requestPasswordAuth('admin');
     });
 
+    document.getElementById('btn-open-settings')?.addEventListener('click', () => {
+      sound.playClick();
+      this.requestPasswordAuth('settings');
+    });
+
+    document.getElementById('form-auth-check')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.handlePasswordAuthSubmit();
+    });
+
+    // 📥 프레임 템플릿/샘플 다운로드 모달 열기
+    document.getElementById('btn-open-samples')?.addEventListener('click', () => {
+      sound.playClick();
+      this.openSamplesModal();
+    });
+    document.getElementById('btn-frame-samples-link')?.addEventListener('click', () => {
+      sound.playClick();
+      this.openSamplesModal();
+    });
+    document.getElementById('btn-admin-samples-download')?.addEventListener('click', () => {
+      sound.playClick();
+      this.openSamplesModal();
+    });
+
+    // 구글 시트 바로가기 버튼
+    document.getElementById('btn-open-google-sheet')?.addEventListener('click', async () => {
+      sound.playClick();
+      await this.openGoogleSheet();
+    });
+
+    // Settings save
+    document.getElementById('btn-save-settings')?.addEventListener('click', async () => {
+      sound.playClick();
+      await this.saveSettingsModal();
+    });
+
+    // Admin frame upload handlers
     document.getElementById('admin-frame-file')?.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
@@ -259,6 +305,59 @@ class App {
     });
   }
 
+  // 비밀번호 인증 게이트
+  requestPasswordAuth(targetAction) {
+    this.closeAllModals();
+    this.pendingAuthAction = targetAction;
+    document.getElementById('auth-password-input').value = '';
+    document.getElementById('auth-error-msg').textContent = '';
+    document.getElementById('auth-modal-title').textContent = 
+      targetAction === 'admin' ? '🔒 관리자 모드 비밀번호 확인' : '⚙️ 환경 설정 비밀번호 확인';
+    if (this.authModal) this.authModal.classList.add('active');
+    setTimeout(() => document.getElementById('auth-password-input').focus(), 100);
+  }
+
+  handlePasswordAuthSubmit() {
+    const inputPin = document.getElementById('auth-password-input').value.trim();
+    const correctPin = this.getAdminPin();
+
+    if (inputPin === correctPin) {
+      const action = this.pendingAuthAction;
+      this.closeAllModals();
+      if (action === 'admin') {
+        this.openAdminModal();
+      } else if (action === 'settings') {
+        this.openSettingsModal();
+      }
+    } else {
+      document.getElementById('auth-error-msg').textContent = '⚠️ 비밀번호가 일치하지 않습니다.';
+      document.getElementById('auth-password-input').select();
+    }
+  }
+
+  openSamplesModal() {
+    this.closeAllModals();
+    if (this.samplesModal) this.samplesModal.classList.add('active');
+  }
+
+  async openGoogleSheet() {
+    if (!gasManager.isConfigured()) {
+      alert('Google Apps Script 웹 앱 URL이 설정되지 않았습니다.');
+      return;
+    }
+
+    try {
+      const info = await gasManager.fetchAdminInfo();
+      if (info && info.spreadsheetUrl) {
+        window.open(info.spreadsheetUrl, '_blank');
+      } else {
+        window.open('https://drive.google.com', '_blank');
+      }
+    } catch (e) {
+      window.open('https://drive.google.com', '_blank');
+    }
+  }
+
   // 화면 전환
   async goToStep(stepName) {
     this.currentStep = stepName;
@@ -287,7 +386,7 @@ class App {
     }
   }
 
-  // 1. 프레임 로드 (로컬 frames.json + 구글 드라이브 업로드 프레임 병합)
+  // 1. 프레임 로드
   async loadFrames() {
     let localFrames = [];
     try {
@@ -562,6 +661,7 @@ class App {
   openSettingsModal() {
     this.closeAllModals();
     document.getElementById('input-gas-url').value = gasManager.gasUrl || '';
+    document.getElementById('input-change-admin-pin').value = '';
     const config = emailSender.loadConfig();
     document.getElementById('input-service-id').value = config.serviceId || '';
     document.getElementById('input-template-id').value = config.templateId || '';
@@ -569,9 +669,20 @@ class App {
     if (this.settingsModal) this.settingsModal.classList.add('active');
   }
 
-  saveSettingsModal() {
+  async saveSettingsModal() {
     const gasUrl = document.getElementById('input-gas-url').value;
     gasManager.saveGasUrl(gasUrl);
+
+    const newPin = document.getElementById('input-change-admin-pin').value.trim();
+    if (newPin) {
+      this.setAdminPin(newPin);
+      await gasManager.saveSettingsLog({
+        settingName: '관리자 비밀번호 변경',
+        settingDetails: '새 비밀번호로 변경됨',
+        newPin: newPin,
+        adminPin: newPin
+      });
+    }
 
     const sId = document.getElementById('input-service-id').value;
     const tId = document.getElementById('input-template-id').value;
@@ -626,8 +737,8 @@ class App {
       `;
 
       item.querySelector('.btn-delete-frame')?.addEventListener('click', async () => {
-        if (confirm(`'${frame.name}' 프레임을 구글 드라이브에서 삭제하시겠습니까?`)) {
-          const pin = document.getElementById('admin-pin-input').value;
+        if (confirm(`'${frame.name}' 프레임을 구글 드라이브와 시트에서 삭제하시겠습니까?`)) {
+          const pin = this.getAdminPin();
           await gasManager.deleteFrame(frame.id, pin);
           await this.renderAdminCustomFramesList();
           await this.loadFrames();
@@ -643,7 +754,7 @@ class App {
     const name = document.getElementById('admin-frame-name').value.trim();
     const desc = document.getElementById('admin-frame-desc').value.trim();
     const preset = document.getElementById('admin-frame-preset').value;
-    const pin = document.getElementById('admin-pin-input').value.trim();
+    const pin = this.getAdminPin();
     const statusMsg = document.getElementById('admin-status-msg');
     const uploadBtn = document.getElementById('btn-admin-upload-frame');
 
@@ -659,8 +770,8 @@ class App {
 
     try {
       uploadBtn.disabled = true;
-      uploadBtn.innerHTML = '<span>구글 드라이브 업로드 중... ☁️</span>';
-      statusMsg.textContent = '구글 드라이브에 PNG 이미지를 저장하고 있습니다...';
+      uploadBtn.innerHTML = '<span>구글 드라이브 및 시트 저장 중... ☁️</span>';
+      statusMsg.textContent = '구글 드라이브에 PNG 이미지를 저장하고 시트에 기록하고 있습니다...';
 
       await gasManager.uploadFrame({
         name: name,
@@ -670,7 +781,7 @@ class App {
         adminPin: pin
       });
 
-      statusMsg.innerHTML = '<span style="color:#10b981;">🎉 프레임이 구글 드라이브에 성공적으로 등록되었습니다!</span>';
+      statusMsg.innerHTML = '<span style="color:#10b981;">🎉 프레임이 구글 드라이브와 시트에 성공적으로 등록되었습니다!</span>';
       document.getElementById('admin-frame-name').value = '';
       document.getElementById('admin-frame-desc').value = '';
       document.getElementById('admin-frame-file').value = '';
@@ -685,7 +796,7 @@ class App {
       statusMsg.innerHTML = `<span style="color:#ff6b8b;">업로드 실패: ${err.message || '오류 발생'}</span>`;
     } finally {
       uploadBtn.disabled = false;
-      uploadBtn.innerHTML = '<span>구글 드라이브에 저장</span> <span>☁️</span>';
+      uploadBtn.innerHTML = '<span>구글 드라이브 및 시트에 저장</span> <span>☁️</span>';
     }
   }
 
@@ -721,7 +832,7 @@ class App {
       statusMsg.textContent = '포토 스트립 이미지를 이메일로 전송하고 있습니다...';
 
       if (useGas) {
-        // 1. 구글 앱스스크립트(Gmail)로 발송
+        // 1. 구글 앱스스크립트(Gmail)로 발송 (구글 시트에 로그 자동 기록)
         await gasManager.sendEmail({
           toEmail: toEmail,
           imageBlob: this.finalComposite.blob
