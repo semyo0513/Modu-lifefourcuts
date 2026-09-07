@@ -1,7 +1,4 @@
-/**
- * gas.js - Google Apps Script (GAS) 연동 클라이언트 모듈
- * 구글 드라이브 프레임 업로드, 프레임 목록 동기화, Gmail 이메일 발송을 처리합니다.
- */
+export const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwaJY0ltkGCjqbwOF8SKQHyPmcSUaP8CM9zgZxx6t4cm2nXQeMVm1KzAnaYX_mJ7G_1Rw/exec';
 
 export class GasManager {
   constructor() {
@@ -11,9 +8,9 @@ export class GasManager {
 
   loadGasUrl() {
     try {
-      return localStorage.getItem(this.storageKey) || '';
+      return localStorage.getItem(this.storageKey) || DEFAULT_GAS_URL;
     } catch (e) {
-      return '';
+      return DEFAULT_GAS_URL;
     }
   }
 
