@@ -180,17 +180,46 @@
           </div>
         </aside>
 
-        <!-- 우측 메인 패널: 사진 선택 풀 & 프레임 슬롯 순서 -->
+        <!-- 우측 메인 패널: 대형 확대 보정 뷰 & 사진 선택 풀 & 프레임 슬롯 순서 -->
         <div class="editor-main-panel">
+          <!-- 대형 실시간 보정 확대 뷰 (더블클릭 또는 탐색으로 확인) -->
+          <div id="editor-inspector-card" class="inspector-card">
+            <div class="inspector-header">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="inspector-badge">🔍 대형 실시간 보정 뷰</span>
+                <span id="inspector-index-text" style="font-size: 0.95rem; font-weight: 700; color: var(--accent-pink);">1 / 6 번째 사진</span>
+              </div>
+              <div class="inspector-actions">
+                <button type="button" id="btn-inspector-prev" class="btn-icon" title="이전 사진">◀ 이전 사진</button>
+                <button type="button" id="btn-inspector-next" class="btn-icon" title="다음 사진">다음 사진 ▶</button>
+                <button type="button" id="btn-inspector-toggle-select" class="btn-icon" style="background: var(--accent-gradient); border: none; font-weight: 600; color: #fff;">
+                  <span id="inspector-select-label">프레임 슬롯에 담기 ➕</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="inspector-img-container">
+              <img id="editor-large-preview-img" class="editor-preview-img" alt="Large Live Preview" />
+            </div>
+
+            <div class="inspector-footer">
+              <span>💡 아래 사진 썸네일을 <b>더블 클릭</b>하면 해당 사진을 즉시 크게 띄워 보정 효과를 확인할 수 있습니다.</span>
+            </div>
+          </div>
+
           <!-- 촬영된 6장 사진 풀 -->
           <div class="pool-container">
-            <div class="editor-section-title">촬영된 6장 중 선택 (클릭하여 담기/해제)</div>
+            <div class="editor-section-title">
+              <span>촬영된 6장 사진 목록 (클릭: 선택/해제 | 더블클릭: 대형 확대 뷰)</span>
+            </div>
             <div id="editor-thumbnails" class="pool-grid"></div>
           </div>
 
           <!-- 프레임 슬롯 및 순서 변경 -->
           <div class="slots-container">
-            <div class="editor-section-title">프레임 슬롯 배치 (화살표로 순서 변경)</div>
+            <div class="editor-section-title">
+              <span>프레임 슬롯 배치 (화살표: 순서 이동 | 더블클릭: 대형 확대 뷰)</span>
+            </div>
             <div id="editor-slots" class="slots-grid"></div>
           </div>
 

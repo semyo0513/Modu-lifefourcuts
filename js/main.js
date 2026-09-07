@@ -24,6 +24,7 @@ class App {
     this.adminUploadedFileBase64 = null;
     this.pendingAuthAction = null; // 'admin' or 'settings'
     this.spreadsheetUrl = null;
+    this.currentInspectedIndex = 0; // 대형 뷰에서 보고 있는 사진 인덱스 (0~5)
 
     this.initElements();
     this.bindEvents();
@@ -84,6 +85,11 @@ class App {
     this.editorThumbnails = document.getElementById('editor-thumbnails');
     this.editorSlots = document.getElementById('editor-slots');
     this.slotCountNotice = document.getElementById('slot-count-notice');
+
+    // Large Inspector elements
+    this.largePreviewImg = document.getElementById('editor-large-preview-img');
+    this.inspectorIndexText = document.getElementById('inspector-index-text');
+    this.inspectorSelectLabel = document.getElementById('inspector-select-label');
 
     // Preview elements
     this.previewImageEl = document.getElementById('preview-final-image');
@@ -169,6 +175,25 @@ class App {
       this.editor.applyPreset('original');
       this.syncSliderUIFromEditor();
       this.renderFilterPresets();
+      this.updateEditorPreviewStyles();
+    });
+
+    // Large Inspector Navigations
+    document.getElementById('btn-inspector-prev')?.addEventListener('click', () => {
+      sound.playClick();
+      this.navigateInspectedPhoto(-1);
+    });
+
+    document.getElementById('btn-inspector-next')?.addEventListener('click', () => {
+      sound.playClick();
+      this.navigateInspectedPhoto(1);
+    });
+
+    document.getElementById('btn-inspector-toggle-select')?.addEventListener('click', () => {
+      sound.playClick();
+      this.editor.togglePhotoSelection(this.currentInspectedIndex);
+      this.renderEditorThumbnailsAndSlots();
+      this.updateInspectorView();
       this.updateEditorPreviewStyles();
     });
 
@@ -508,9 +533,11 @@ class App {
   // 3. 편집기(보정 & 선택/배치) 셋업
   setupEditorStep() {
     this.slotCountNotice.textContent = `선택한 프레임 규격: ${this.selectedFrame.name} (${this.selectedFrame.slotCount}컷 필요)`;
+    this.currentInspectedIndex = 0;
     this.renderFilterPresets();
     this.syncSliderUIFromEditor();
     this.renderEditorThumbnailsAndSlots();
+    this.updateInspectorView();
   }
 
   renderFilterPresets() {
@@ -552,25 +579,76 @@ class App {
     });
   }
 
+  // 대형 보정 뷰 갱신
+  updateInspectorView() {
+    if (!this.largePreviewImg || this.editor.rawShots.length === 0) return;
+
+    const currentShot = this.editor.rawShots[this.currentInspectedIndex];
+    if (currentShot) {
+      this.largePreviewImg.src = currentShot;
+      this.largePreviewImg.style.filter = this.editor.getCSSFilterString();
+    }
+
+    if (this.inspectorIndexText) {
+      this.inspectorIndexText.textContent = `${this.currentInspectedIndex + 1} / ${this.editor.rawShots.length} 번째 사진`;
+    }
+
+    if (this.inspectorSelectLabel) {
+      const slotIdx = this.editor.selectedIndices.indexOf(this.currentInspectedIndex);
+      if (slotIdx > -1) {
+        this.inspectorSelectLabel.textContent = `슬롯 #${slotIdx + 1}에 배치됨 (해제 ➖)`;
+      } else {
+        this.inspectorSelectLabel.textContent = '프레임 슬롯에 담기 ➕';
+      }
+    }
+  }
+
+  setInspectedPhoto(idx) {
+    if (idx >= 0 && idx < this.editor.rawShots.length) {
+      this.currentInspectedIndex = idx;
+      this.updateInspectorView();
+      // 대형 인스펙터로 부드럽게 스크롤
+      document.getElementById('editor-inspector-card')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  navigateInspectedPhoto(delta) {
+    const total = this.editor.rawShots.length;
+    if (total === 0) return;
+    this.currentInspectedIndex = (this.currentInspectedIndex + delta + total) % total;
+    this.updateInspectorView();
+  }
+
   renderEditorThumbnailsAndSlots() {
     // 1. 촬영된 6장 썸네일 풀 (Selection Pool)
     this.editorThumbnails.innerHTML = '';
     this.editor.rawShots.forEach((shotSrc, idx) => {
       const slotIndex = this.editor.selectedIndices.indexOf(idx);
       const isSelected = slotIndex > -1;
+      const isInspected = this.currentInspectedIndex === idx;
 
       const item = document.createElement('div');
-      item.className = `editor-pool-item ${isSelected ? 'selected' : ''}`;
+      item.className = `editor-pool-item ${isSelected ? 'selected' : ''} ${isInspected ? 'inspected' : ''}`;
+      item.title = `더블클릭: 대형 확대 뷰로 보기 | 클릭: 슬롯 담기/해제`;
       item.innerHTML = `
         <img src="${shotSrc}" class="editor-preview-img" alt="Shot ${idx + 1}" />
         <div class="pool-badge">${isSelected ? `#${slotIndex + 1}` : `${idx + 1}`}</div>
       `;
 
+      // 클릭 시 슬롯 선택 토글 + 대형 뷰 변경
       item.addEventListener('click', () => {
         sound.playClick();
+        this.setInspectedPhoto(idx);
         this.editor.togglePhotoSelection(idx);
         this.renderEditorThumbnailsAndSlots();
         this.updateEditorPreviewStyles();
+      });
+
+      // 더블 클릭 시 대형 뷰 포커스
+      item.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        sound.playClick();
+        this.setInspectedPhoto(idx);
       });
 
       this.editorThumbnails.appendChild(item);
@@ -588,7 +666,7 @@ class App {
       if (hasPhoto) {
         slotEl.innerHTML = `
           <div class="slot-header">슬롯 ${slotIdx + 1}</div>
-          <div class="slot-img-wrap">
+          <div class="slot-img-wrap" title="더블클릭: 대형 확대 뷰로 보기">
             <img src="${this.editor.rawShots[photoIdx]}" class="editor-preview-img" alt="Slot ${slotIdx + 1}" />
           </div>
           <div class="slot-controls">
@@ -596,6 +674,12 @@ class App {
             <button class="btn-slot-nav" data-dir="right" ${slotIdx === this.selectedFrame.slotCount - 1 ? 'disabled' : ''} title="뒤로 이동">▶</button>
           </div>
         `;
+
+        slotEl.querySelector('.slot-img-wrap')?.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          sound.playClick();
+          this.setInspectedPhoto(photoIdx);
+        });
 
         slotEl.querySelector('[data-dir="left"]')?.addEventListener('click', (e) => {
           e.stopPropagation();
