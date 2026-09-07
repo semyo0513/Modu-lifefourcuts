@@ -8,6 +8,7 @@ import { PhotoEditor, FILTER_PRESETS } from './editor.js';
 import { FrameCompositor } from './compositor.js';
 import { printer } from './print.js';
 import { emailSender } from './email.js';
+import { gasManager } from './gas.js';
 
 class App {
   constructor() {
@@ -20,6 +21,7 @@ class App {
     this.compositor = new FrameCompositor();
 
     this.finalComposite = null; // { canvas, dataUrl, blob }
+    this.adminUploadedFileBase64 = null;
 
     this.initElements();
     this.bindEvents();
@@ -72,6 +74,7 @@ class App {
     // Modals
     this.emailModal = document.getElementById('email-modal');
     this.settingsModal = document.getElementById('settings-modal');
+    this.adminModal = document.getElementById('admin-modal');
     this.fileUploadInput = document.getElementById('file-upload-input');
   }
 
@@ -214,6 +217,34 @@ class App {
       this.saveSettingsModal();
     });
 
+    // Admin Modal
+    document.getElementById('btn-open-admin')?.addEventListener('click', () => {
+      sound.playClick();
+      this.openAdminModal();
+    });
+
+    document.getElementById('admin-frame-file')?.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          this.adminUploadedFileBase64 = evt.target.result;
+          const wrap = document.getElementById('admin-frame-preview-wrap');
+          const img = document.getElementById('admin-frame-preview-img');
+          if (wrap && img) {
+            img.src = this.adminUploadedFileBase64;
+            wrap.style.display = 'flex';
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    document.getElementById('btn-admin-upload-frame')?.addEventListener('click', async () => {
+      sound.playClick();
+      await this.handleAdminFrameUpload();
+    });
+
     document.querySelectorAll('.modal-close-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         sound.playClick();
@@ -244,6 +275,7 @@ class App {
 
     // 스텝별 진입 작업
     if (stepName === 'frame') {
+      await this.loadFrames();
       this.renderFrameGallery();
     } else if (stepName === 'camera') {
       await this.setupCameraStep();
@@ -255,16 +287,28 @@ class App {
     }
   }
 
-  // 1. 프레임 로드 및 렌더링
+  // 1. 프레임 로드 (로컬 frames.json + 구글 드라이브 업로드 프레임 병합)
   async loadFrames() {
+    let localFrames = [];
     try {
       const res = await fetch('frames/frames.json');
-      this.frames = await res.json();
-      if (this.frames.length > 0) {
-        this.selectedFrame = this.frames[0];
-      }
+      localFrames = await res.json();
     } catch (e) {
       console.error('Failed to load frames.json:', e);
+    }
+
+    let customFrames = [];
+    if (gasManager.isConfigured()) {
+      try {
+        customFrames = await gasManager.fetchCustomFrames();
+      } catch (err) {
+        console.warn('Failed to fetch custom frames from GAS:', err);
+      }
+    }
+
+    this.frames = [...localFrames, ...customFrames];
+    if (this.frames.length > 0 && !this.selectedFrame) {
+      this.selectedFrame = this.frames[0];
     }
   }
 
@@ -277,8 +321,9 @@ class App {
       card.className = `frame-card ${this.selectedFrame?.id === frame.id ? 'selected' : ''}`;
       card.innerHTML = `
         <div class="frame-thumb-wrap">
-          <img src="${frame.file}" alt="${frame.name}" class="frame-thumb-img" />
+          <img src="${frame.file}" alt="${frame.name}" class="frame-thumb-img" onerror="this.style.opacity=0.3" />
           <span class="slot-badge">${frame.slotCount}컷</span>
+          ${frame.isCustom ? '<span style="position:absolute; bottom:8px; left:8px; background:#ff5e8e; color:#fff; font-size:0.7rem; padding:2px 6px; border-radius:4px;">☁️ 드라이브</span>' : ''}
         </div>
         <div class="frame-card-info">
           <h4>${frame.name}</h4>
@@ -516,6 +561,7 @@ class App {
 
   openSettingsModal() {
     this.closeAllModals();
+    document.getElementById('input-gas-url').value = gasManager.gasUrl || '';
     const config = emailSender.loadConfig();
     document.getElementById('input-service-id').value = config.serviceId || '';
     document.getElementById('input-template-id').value = config.templateId || '';
@@ -524,12 +570,123 @@ class App {
   }
 
   saveSettingsModal() {
+    const gasUrl = document.getElementById('input-gas-url').value;
+    gasManager.saveGasUrl(gasUrl);
+
     const sId = document.getElementById('input-service-id').value;
     const tId = document.getElementById('input-template-id').value;
     const pKey = document.getElementById('input-public-key').value;
     emailSender.saveConfig(sId, tId, pKey);
-    alert('EmailJS 설정이 성공적으로 저장되었습니다!');
+
+    alert('설정이 성공적으로 저장되었습니다!');
     this.closeAllModals();
+    this.loadFrames();
+  }
+
+  // 관리자 모달
+  async openAdminModal() {
+    this.closeAllModals();
+    if (!gasManager.isConfigured()) {
+      alert('Google Apps Script 웹 앱 URL이 설정되지 않았습니다.\n먼저 [설정 ⚙️]에서 URL을 등록해 주세요.');
+      this.openSettingsModal();
+      return;
+    }
+    this.adminUploadedFileBase64 = null;
+    document.getElementById('admin-frame-file').value = '';
+    document.getElementById('admin-frame-preview-wrap').style.display = 'none';
+    document.getElementById('admin-status-msg').textContent = '';
+    if (this.adminModal) this.adminModal.classList.add('active');
+    await this.renderAdminCustomFramesList();
+  }
+
+  async renderAdminCustomFramesList() {
+    const listEl = document.getElementById('admin-custom-frames-list');
+    if (!listEl) return;
+    listEl.innerHTML = '<p style="font-size:0.8rem; color:var(--text-muted);">프레임 목록 로딩 중...</p>';
+
+    const customFrames = await gasManager.fetchCustomFrames();
+    if (customFrames.length === 0) {
+      listEl.innerHTML = '<p style="font-size:0.8rem; color:var(--text-muted);">구글 드라이브에 등록된 커스텀 프레임이 없습니다.</p>';
+      return;
+    }
+
+    listEl.innerHTML = '';
+    customFrames.forEach(frame => {
+      const item = document.createElement('div');
+      item.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:var(--bg-primary); padding:8px 12px; border-radius:6px; border:1px solid var(--border-color);';
+      item.innerHTML = `
+        <div style="display:flex; align-items:center; gap:10px;">
+          <img src="${frame.file}" style="width:36px; height:36px; object-fit:contain; background:#000; border-radius:4px;" />
+          <div>
+            <div style="font-weight:600; font-size:0.85rem;">${frame.name}</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">${frame.slotCount}컷 · ${frame.aspectRatio}</div>
+          </div>
+        </div>
+        <button class="btn-icon btn-delete-frame" style="color:#ff5e8e; padding:4px 8px; font-size:0.75rem;">삭제</button>
+      `;
+
+      item.querySelector('.btn-delete-frame')?.addEventListener('click', async () => {
+        if (confirm(`'${frame.name}' 프레임을 구글 드라이브에서 삭제하시겠습니까?`)) {
+          const pin = document.getElementById('admin-pin-input').value;
+          await gasManager.deleteFrame(frame.id, pin);
+          await this.renderAdminCustomFramesList();
+          await this.loadFrames();
+          this.renderFrameGallery();
+        }
+      });
+
+      listEl.appendChild(item);
+    });
+  }
+
+  async handleAdminFrameUpload() {
+    const name = document.getElementById('admin-frame-name').value.trim();
+    const desc = document.getElementById('admin-frame-desc').value.trim();
+    const preset = document.getElementById('admin-frame-preset').value;
+    const pin = document.getElementById('admin-pin-input').value.trim();
+    const statusMsg = document.getElementById('admin-status-msg');
+    const uploadBtn = document.getElementById('btn-admin-upload-frame');
+
+    if (!name) {
+      alert('프레임 이름을 입력해 주세요.');
+      return;
+    }
+
+    if (!this.adminUploadedFileBase64) {
+      alert('투명 프레임 PNG 파일을 선택해 주세요.');
+      return;
+    }
+
+    try {
+      uploadBtn.disabled = true;
+      uploadBtn.innerHTML = '<span>구글 드라이브 업로드 중... ☁️</span>';
+      statusMsg.textContent = '구글 드라이브에 PNG 이미지를 저장하고 있습니다...';
+
+      await gasManager.uploadFrame({
+        name: name,
+        description: desc,
+        imageBase64: this.adminUploadedFileBase64,
+        slotPreset: preset,
+        adminPin: pin
+      });
+
+      statusMsg.innerHTML = '<span style="color:#10b981;">🎉 프레임이 구글 드라이브에 성공적으로 등록되었습니다!</span>';
+      document.getElementById('admin-frame-name').value = '';
+      document.getElementById('admin-frame-desc').value = '';
+      document.getElementById('admin-frame-file').value = '';
+      document.getElementById('admin-frame-preview-wrap').style.display = 'none';
+      this.adminUploadedFileBase64 = null;
+
+      await this.renderAdminCustomFramesList();
+      await this.loadFrames();
+      this.renderFrameGallery();
+    } catch (err) {
+      console.error('Frame upload error:', err);
+      statusMsg.innerHTML = `<span style="color:#ff6b8b;">업로드 실패: ${err.message || '오류 발생'}</span>`;
+    } finally {
+      uploadBtn.disabled = false;
+      uploadBtn.innerHTML = '<span>구글 드라이브에 저장</span> <span>☁️</span>';
+    }
   }
 
   closeAllModals() {
@@ -547,10 +704,13 @@ class App {
       return;
     }
 
-    if (!emailSender.isConfigured()) {
+    const useGas = gasManager.isConfigured();
+    const useEmailJs = emailSender.isConfigured();
+
+    if (!useGas && !useEmailJs) {
       statusMsg.innerHTML = `
-        <span style="color:#ff6b8b;">EmailJS 설정이 필요합니다.</span><br/>
-        상단 [설정⚙️] 버튼을 눌러 Service ID / Template ID / Public Key를 입력해 주세요.
+        <span style="color:#ff6b8b;">이메일 발송 설정이 필요합니다.</span><br/>
+        상단 [설정⚙️] 버튼을 눌러 <b>Google Apps Script 웹 앱 URL</b>을 입력해 주세요.
       `;
       return;
     }
@@ -558,12 +718,21 @@ class App {
     try {
       sendBtn.disabled = true;
       sendBtn.textContent = '전송 중... 🚀';
-      statusMsg.textContent = '포토 스트립 이미지를 압축하여 이메일로 전송하고 있습니다...';
+      statusMsg.textContent = '포토 스트립 이미지를 이메일로 전송하고 있습니다...';
 
-      await emailSender.sendEmail({
-        toEmail: toEmail,
-        imageBlob: this.finalComposite.blob
-      });
+      if (useGas) {
+        // 1. 구글 앱스스크립트(Gmail)로 발송
+        await gasManager.sendEmail({
+          toEmail: toEmail,
+          imageBlob: this.finalComposite.blob
+        });
+      } else {
+        // 2. EmailJS 백업 발송
+        await emailSender.sendEmail({
+          toEmail: toEmail,
+          imageBlob: this.finalComposite.blob
+        });
+      }
 
       statusMsg.innerHTML = '<span style="color:#10b981;">🎉 성공적으로 이메일이 발송되었습니다!</span>';
       setTimeout(() => {

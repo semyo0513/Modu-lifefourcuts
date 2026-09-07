@@ -24,7 +24,10 @@
       <span class="logo-text">모두의 네컷 사진</span>
     </button>
     <div class="header-actions">
-      <button id="btn-open-settings" class="btn-icon" title="이메일 전송 및 환경 설정">
+      <button id="btn-open-admin" class="btn-icon" title="관리자 프레임 등록 및 관리">
+        <span>🔒</span> <span>관리자</span>
+      </button>
+      <button id="btn-open-settings" class="btn-icon" title="앱스스크립트 및 환경 설정">
         <span>⚙️</span> <span>설정</span>
       </button>
     </div>
@@ -48,9 +51,9 @@
         <div class="hero-features">
           <div class="feature-tag">📸 6컷 연속 촬영</div>
           <div class="feature-tag">🌸 뽀샤시 & 필터 보정</div>
-          <div class="feature-tag">🎨 감성 프레임 선택</div>
+          <div class="feature-tag">🎨 구글드라이브 프레임 연동</div>
           <div class="feature-tag">🖨️ 2x6 포토 스트립 인쇄</div>
-          <div class="feature-tag">💌 이메일 전송 지원</div>
+          <div class="feature-tag">💌 이메일 즉시 전송</div>
         </div>
 
         <button id="btn-start-app" class="btn-primary-large">
@@ -68,7 +71,7 @@
       </div>
 
       <div id="frame-list" class="frame-gallery">
-        <!-- frames.json을 통해 동적으로 프레임 카드 렌더링 -->
+        <!-- frames.json 및 구글 드라이브 업로드 프레임이 동적으로 렌더링됩니다 -->
       </div>
 
       <div class="action-bar">
@@ -250,7 +253,7 @@
         <div class="form-group">
           <label for="input-to-email">받으실 이메일 주소</label>
           <input type="email" id="input-to-email" class="form-input" placeholder="example@email.com" required />
-          <p class="form-helper">입력하신 이메일로 완성된 네컷 사진이 발송됩니다.</p>
+          <p class="form-helper">입력하신 이메일로 완성된 네컷 사진이 첨부되어 발송됩니다.</p>
         </div>
         <div id="email-status-msg" style="margin: 8px 0; font-size: 0.9rem;"></div>
         <div class="action-bar" style="justify-content: flex-end; margin-top: 12px;">
@@ -261,29 +264,107 @@
     </div>
   </div>
 
-  <!-- 모달 2: 설정 모달 (EmailJS 키 설정) -->
+  <!-- 모달 2: 설정 모달 (Google Apps Script URL & EmailJS 설정) -->
   <div id="settings-modal" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
         <h3>⚙️ 환경 설정 (Settings)</h3>
         <button class="modal-close-btn">&times;</button>
       </div>
-      <div class="form-group">
-        <label for="input-service-id">EmailJS Service ID</label>
-        <input type="text" id="input-service-id" class="form-input" placeholder="service_xxxxxxx" />
+      
+      <!-- 구글 앱스스크립트(GAS) 설정 (메인) -->
+      <div class="form-group" style="background: rgba(255, 94, 142, 0.08); padding: 12px; border-radius: 8px; border: 1px solid rgba(255, 94, 142, 0.3);">
+        <label for="input-gas-url" style="color: #ff5e8e; font-weight: 700;">Google Apps Script 웹 앱 URL (추천 ⭐)</label>
+        <input type="url" id="input-gas-url" class="form-input" placeholder="https://script.google.com/macros/s/.../exec" />
+        <p class="form-helper">Code.gs 배포 후 발급받은 웹 앱 URL을 입력하면 구글 드라이브 프레임 저장과 Gmail 이메일 발송이 자동 연동됩니다.</p>
       </div>
-      <div class="form-group">
-        <label for="input-template-id">EmailJS Template ID</label>
-        <input type="text" id="input-template-id" class="form-input" placeholder="template_xxxxxxx" />
-      </div>
-      <div class="form-group">
-        <label for="input-public-key">EmailJS Public Key</label>
-        <input type="text" id="input-public-key" class="form-input" placeholder="public_key_xxxxxxx" />
-        <p class="form-helper">EmailJS 계정의 API 키를 입력하시면 브라우저 로컬 저장소에 안전하게 보관됩니다.</p>
-      </div>
+
+      <hr style="border: none; border-top: 1px solid var(--border-color); margin: 6px 0;" />
+
+      <!-- 백업: EmailJS 설정 -->
+      <details>
+        <summary style="cursor: pointer; color: var(--text-muted); font-size: 0.85rem;">기타 설정: EmailJS 직접 연동 (선택)</summary>
+        <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+          <div class="form-group">
+            <label for="input-service-id">EmailJS Service ID</label>
+            <input type="text" id="input-service-id" class="form-input" placeholder="service_xxxxxxx" />
+          </div>
+          <div class="form-group">
+            <label for="input-template-id">EmailJS Template ID</label>
+            <input type="text" id="input-template-id" class="form-input" placeholder="template_xxxxxxx" />
+          </div>
+          <div class="form-group">
+            <label for="input-public-key">EmailJS Public Key</label>
+            <input type="text" id="input-public-key" class="form-input" placeholder="public_key_xxxxxxx" />
+          </div>
+        </div>
+      </details>
+
       <div class="action-bar" style="justify-content: flex-end; margin-top: 12px;">
         <button type="button" class="btn-secondary modal-close-btn">닫기</button>
         <button type="button" id="btn-save-settings" class="btn-primary">설정 저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 모달 3: 관리자 모드 - 프레임 업로드 & 관리 모달 -->
+  <div id="admin-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 540px;">
+      <div class="modal-header">
+        <h3>🔒 관리자 모드: 프레임 업로드 (구글 드라이브)</h3>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+
+      <div class="form-group">
+        <label for="admin-pin-input">관리자 비밀번호 (기본값: 1234)</label>
+        <input type="password" id="admin-pin-input" class="form-input" value="1234" />
+      </div>
+
+      <div class="form-group">
+        <label for="admin-frame-name">프레임 이름</label>
+        <input type="text" id="admin-frame-name" class="form-input" placeholder="예: 봄맞이 벚꽃 프레임" />
+      </div>
+
+      <div class="form-group">
+        <label for="admin-frame-desc">프레임 설명</label>
+        <input type="text" id="admin-frame-desc" class="form-input" placeholder="예: 4컷 세로 스트립 러블리 테마" />
+      </div>
+
+      <div class="form-group">
+        <label for="admin-frame-preset">프레임 규격 프리셋</label>
+        <select id="admin-frame-preset" class="form-input">
+          <option value="strip_4">표준 4컷 세로 스트립 (600 × 1800 px)</option>
+          <option value="grid_4">2x2 와이드 그리드 (1200 × 1600 px)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="admin-frame-file">투명 프레임 PNG 파일 선택</label>
+        <input type="file" id="admin-frame-file" class="form-input" accept="image/png" />
+        <p class="form-helper">사진이 들어갈 자리가 투명(Alpha 0%)으로 처리된 PNG 파일만 지원합니다.</p>
+      </div>
+
+      <!-- 선택된 이미지 미리보기 -->
+      <div id="admin-frame-preview-wrap" style="display: none; width: 100%; height: 160px; background: repeating-conic-gradient(#333 0% 25%, #222 0% 50%) 50% / 20px 20px; border-radius: 6px; overflow: hidden; align-items: center; justify-content: center;">
+        <img id="admin-frame-preview-img" style="max-height: 100%; max-width: 100%; object-fit: contain;" />
+      </div>
+
+      <div id="admin-status-msg" style="margin: 4px 0; font-size: 0.9rem;"></div>
+
+      <div class="action-bar" style="justify-content: flex-end; margin-top: 12px;">
+        <button type="button" class="btn-secondary modal-close-btn">닫기</button>
+        <button type="button" id="btn-admin-upload-frame" class="btn-primary">
+          <span>구글 드라이브에 저장</span>
+          <span>☁️</span>
+        </button>
+      </div>
+
+      <!-- 이미 등록된 사용자 정의 프레임 목록 -->
+      <div style="margin-top: 16px; border-top: 1px solid var(--border-color); padding-top: 14px;">
+        <h4 style="font-size: 0.95rem; margin-bottom: 8px;">구글 드라이브 등록 프레임 목록</h4>
+        <div id="admin-custom-frames-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 150px; overflow-y: auto;">
+          <p style="font-size: 0.8rem; color: var(--text-muted);">등록된 프레임이 없습니다.</p>
+        </div>
       </div>
     </div>
   </div>
