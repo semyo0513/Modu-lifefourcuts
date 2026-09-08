@@ -1138,6 +1138,211 @@ input[type="range"] {
 }
 
 /* --------------------------------------------------------------------------
+   Frame Studio Modal Styles
+   -------------------------------------------------------------------------- */
+.studio-modal-card {
+  max-width: 860px;
+  width: 95vw;
+  max-height: 92vh;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.studio-body {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 16px;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .studio-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.studio-controls-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.studio-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.studio-section-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--accent-pink);
+  margin-bottom: 2px;
+}
+
+.studio-layout-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.studio-layout-btn {
+  background: var(--bg-primary);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.studio-layout-btn:hover {
+  border-color: var(--accent-purple);
+}
+
+.studio-layout-btn.active {
+  border-color: var(--accent-pink);
+  background: rgba(255, 94, 142, 0.12);
+}
+
+.studio-layout-icon {
+  font-size: 1.4rem;
+}
+
+.studio-swatches-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.studio-color-swatch,
+.studio-gradient-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.studio-color-swatch:hover,
+.studio-gradient-swatch:hover {
+  transform: scale(1.15);
+}
+
+.studio-color-swatch.active,
+.studio-gradient-swatch.active {
+  border-color: #ffffff;
+  outline: 2px solid var(--accent-pink);
+  transform: scale(1.1);
+}
+
+.studio-gradient-swatch {
+  width: 38px;
+  height: 28px;
+}
+
+.studio-sticker-btn {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 1.1rem;
+  padding: 3px 6px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.studio-sticker-btn:hover {
+  transform: scale(1.2);
+  background: rgba(255, 94, 142, 0.2);
+}
+
+.studio-sticker-chip {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-remove-sticker {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0;
+}
+
+.btn-remove-sticker:hover {
+  color: #ef4444;
+}
+
+/* Studio Preview Pane */
+.studio-preview-pane {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.studio-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.studio-canvas-container {
+  flex: 1;
+  width: 100%;
+  min-height: 280px;
+  max-height: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: repeating-conic-gradient(#262626 0% 25%, #171717 0% 50%) 50% / 20px 20px;
+  border-radius: 6px;
+  overflow: hidden;
+  padding: 8px;
+}
+
+.studio-preview-image {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
+  border-radius: 4px;
+}
+
+.studio-action-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+/* --------------------------------------------------------------------------
    인쇄 전용 스타일 (@media print)
    -------------------------------------------------------------------------- */
 #print-strip-target {

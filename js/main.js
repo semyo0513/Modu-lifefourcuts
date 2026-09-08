@@ -9,6 +9,7 @@ import { FrameCompositor } from './compositor.js';
 import { printer } from './print.js';
 import { emailSender } from './email.js';
 import { gasManager } from './gas.js';
+import { FrameStudio } from './studio.js';
 
 class App {
   constructor() {
@@ -19,6 +20,7 @@ class App {
     this.camera = null;
     this.editor = new PhotoEditor();
     this.compositor = new FrameCompositor();
+    this.studio = new FrameStudio(this);
 
     this.finalComposite = null; // { canvas, dataUrl, blob }
     this.adminUploadedFileBase64 = null;
@@ -30,6 +32,7 @@ class App {
   }
 
   async init() {
+    this.studio.init();
     await this.loadFrames();
     this.renderFilterPresets();
     this.goToStep('start');
@@ -116,6 +119,19 @@ class App {
     document.getElementById('btn-start-app')?.addEventListener('click', () => {
       sound.playClick();
       this.goToStep('frame');
+    });
+
+    // Frame Studio Modal Open
+    document.getElementById('btn-open-frame-studio')?.addEventListener('click', () => {
+      sound.playClick();
+      this.closeAllModals();
+      this.studio.open();
+    });
+
+    document.getElementById('btn-admin-open-studio')?.addEventListener('click', () => {
+      sound.playClick();
+      this.closeAllModals();
+      this.studio.open();
     });
 
     // Frame -> Camera
