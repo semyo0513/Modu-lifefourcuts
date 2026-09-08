@@ -727,7 +727,7 @@ input[type="range"] {
   width: 100%;
   height: 100%;
   object-fit: fill;
-  z-index: 2;
+  z-index: 5;
   pointer-events: none;
 }
 
@@ -737,7 +737,7 @@ input[type="range"] {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 6;
+  z-index: 1;
   pointer-events: auto;
 }
 
@@ -745,22 +745,20 @@ input[type="range"] {
   position: absolute;
   border-radius: 4px;
   overflow: hidden;
-  background: #111;
+  background: #222;
   cursor: pointer;
   box-sizing: border-box;
-  transition: box-shadow 0.2s ease, outline 0.15s ease, transform 0.15s ease;
+  transition: box-shadow 0.2s ease, outline 0.15s ease;
 }
 
 .live-slot-item:hover {
-  transform: scale(1.015);
-  z-index: 6;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
 }
 
 .live-slot-item.active {
-  outline: 3px solid #ff5e8e;
+  outline: 2px solid #ff5e8e;
   outline-offset: -1px;
-  box-shadow: 0 0 16px rgba(255, 94, 142, 0.8);
-  z-index: 7;
+  box-shadow: 0 0 12px rgba(255, 94, 142, 0.7);
 }
 
 .live-slot-img {
