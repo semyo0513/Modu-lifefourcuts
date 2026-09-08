@@ -758,6 +758,18 @@ class App {
     const selectedPhotosWithFilters = this.editor.getSelectedPhotosWithFilters();
 
     try {
+      // 구글 드라이브 커스텀 프레임의 Base64 확인 및 보완 (CORS 완벽 방지)
+      if (this.selectedFrame?.isCustom && this.selectedFrame?.fileId && (!this.selectedFrame.file || !this.selectedFrame.file.startsWith('data:'))) {
+        try {
+          const b64 = await gasManager.getFrameBase64(this.selectedFrame.fileId);
+          if (b64) {
+            this.selectedFrame.file = b64;
+          }
+        } catch (err) {
+          console.warn('Failed to pre-fetch base64 for frame:', err);
+        }
+      }
+
       this.finalComposite = await this.compositor.composite({
         frameMeta: this.selectedFrame,
         photos: selectedPhotosWithFilters,

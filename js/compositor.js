@@ -14,9 +14,22 @@ export class FrameCompositor {
   loadImage(src) {
     return new Promise((resolve, reject) => {
       const img = new Image();
-      img.crossOrigin = 'anonymous';
+      // data: or blob: URLs do not need crossOrigin
+      if (typeof src === 'string' && !src.startsWith('data:') && !src.startsWith('blob:')) {
+        img.crossOrigin = 'anonymous';
+      }
       img.onload = () => resolve(img);
-      img.onerror = (err) => reject(new Error(`Failed to load image: ${src}`));
+      img.onerror = (err) => {
+        // If crossOrigin anonymous failed on external image, try fallback without crossOrigin
+        if (img.crossOrigin) {
+          const fallbackImg = new Image();
+          fallbackImg.onload = () => resolve(fallbackImg);
+          fallbackImg.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+          fallbackImg.src = src;
+        } else {
+          reject(new Error(`Failed to load image: ${src}`));
+        }
+      };
       img.src = src;
     });
   }

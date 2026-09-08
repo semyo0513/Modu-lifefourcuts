@@ -44,6 +44,22 @@ export class GasManager {
     return [];
   }
 
+  // 1-1. 특정 프레임의 Base64 Data URL 조회 (CORS 방지용 개별 조회)
+  async getFrameBase64(fileId) {
+    if (!this.isConfigured() || !fileId) return null;
+    try {
+      const url = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}action=getFrameBase64&fileId=${encodeURIComponent(fileId)}&t=${Date.now()}`;
+      const res = await fetch(url, { method: 'GET' });
+      const data = await res.json();
+      if (data && data.status === 'ok' && data.dataUrl) {
+        return data.dataUrl;
+      }
+    } catch (err) {
+      console.warn('GAS getFrameBase64 error:', err);
+    }
+    return null;
+  }
+
   // 2. 새 프레임 PNG 업로드 (구글 드라이브에 저장)
   async uploadFrame({ name, description, imageBase64, slotPreset = 'strip_4', customSlots = null, adminPin = '1234' }) {
     if (!this.isConfigured()) {

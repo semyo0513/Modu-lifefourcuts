@@ -4,16 +4,15 @@
  * ==========================================================================
  * 
  * [주요 기능]
- * 1. 프레임 관리: 업로드된 PNG를 구글 드라이브에 저장하고 메타데이터 관리
+ * 1. 프레임 관리: 업로드된 PNG를 구글 드라이브에 저장하고 Base64 DataURL로 안전하게 전송(CORS 완벽 해결)
  * 2. 구글 시트 기록: 관리자 설정, 프레임 등록/삭제 내역, 이메일 발송 로그를 스프레드시트에 자동 기록
  * 3. 이메일 발송: GmailApp을 통해 촬영된 고화질 사진을 첨부하여 사용자에게 즉시 발송
  * 
  * [배포 설정 방법]
  * 1. https://script.google.com 에 이 코드를 붙여넣기
- * 2. 상단 [배포] -> [새 배포] -> 유형: [웹 앱]
+ * 2. 상단 [배포] -> [배포 관리] -> [수정(연필 아이콘)] -> [새 버전]으로 배포
  *    - 실행: [나 (내 계정)]
  *    - 액세스 권한: [모든 사용자 (Anyone)]
- * 3. 발급된 URL을 웹앱에 연동
  */
 
 // 관리자 기본 비밀번호
@@ -35,7 +34,16 @@ function doGet(e) {
     if (action === "ping") {
       result = { status: "ok", message: "모두의 네컷 사진 GAS 서버가 정상 작동 중입니다." };
     } else if (action === "getFrames") {
-      result = { status: "ok", frames: getStoredFrames() };
+      result = { status: "ok", frames: getStoredFramesWithBase64() };
+    } else if (action === "getFrameBase64") {
+      var fileId = params.fileId;
+      if (fileId) {
+        var file = DriveApp.getFileById(fileId);
+        var b64 = Utilities.base64Encode(file.getBlob().getBytes());
+        result = { status: "ok", dataUrl: "data:image/png;base64," + b64 };
+      } else {
+        result = { status: "error", message: "fileId가 필요합니다." };
+      }
     } else if (action === "getAdminInfo") {
       result = { status: "ok", spreadsheetUrl: getOrCreateSpreadsheet().getUrl() };
     } else {
@@ -108,6 +116,7 @@ function handleUploadFrame(data) {
 
   var fileId = file.getId();
   var directImageUrl = "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w2000";
+  var dataUrl = "data:image/png;base64," + base64Data;
   var frameId = "custom_" + fileId;
 
   var newFrame = {
@@ -125,14 +134,18 @@ function handleUploadFrame(data) {
     isCustom: true
   };
 
-  var frames = getStoredFrames();
+  var frames = getStoredFramesMetadata();
   frames.push(newFrame);
-  saveStoredFrames(frames);
+  saveStoredFramesMetadata(frames);
 
   // 📝 구글 스프레드시트 기록
   logFrameToSheet(newFrame, "등록 완료");
 
-  return { status: "ok", message: "프레임이 구글 드라이브와 시트에 성공적으로 저장되었습니다.", frame: newFrame };
+  // 클라이언트에 반환할 때는 캔버스 합성이 즉시 가능하도록 dataUrl을 첨부하여 전달
+  var returnedFrame = Object.assign({}, newFrame);
+  returnedFrame.file = dataUrl;
+
+  return { status: "ok", message: "프레임이 구글 드라이브와 시트에 성공적으로 저장되었습니다.", frame: returnedFrame };
 }
 
 /**
@@ -187,7 +200,7 @@ function handleDeleteFrame(data) {
   }
 
   var frameId = data.frameId;
-  var frames = getStoredFrames();
+  var frames = getStoredFramesMetadata();
   var target = null;
   var newFrames = frames.filter(function(f) {
     if (f.id === frameId) {
@@ -205,7 +218,7 @@ function handleDeleteFrame(data) {
     }
   }
 
-  saveStoredFrames(newFrames);
+  saveStoredFramesMetadata(newFrames);
 
   if (target) {
     logFrameToSheet(target, "삭제됨");
@@ -356,7 +369,29 @@ function getOrCreateFolder(folderName) {
   }
 }
 
-function getStoredFrames() {
+/**
+ * 프레임 목록을 구글 드라이브 파일에서 읽어 Base64 Data URL을 붙여 반환 (Canvas CORS 완벽 해결)
+ */
+function getStoredFramesWithBase64() {
+  var metadataList = getStoredFramesMetadata();
+  return metadataList.map(function(f) {
+    var clone = Object.assign({}, f);
+    if (f.fileId) {
+      try {
+        var driveFile = DriveApp.getFileById(f.fileId);
+        if (driveFile && !driveFile.isTrashed()) {
+          var b64 = Utilities.base64Encode(driveFile.getBlob().getBytes());
+          clone.file = "data:image/png;base64," + b64;
+        }
+      } catch (err) {
+        Logger.log("Could not load base64 for fileId " + f.fileId + ": " + err);
+      }
+    }
+    return clone;
+  });
+}
+
+function getStoredFramesMetadata() {
   var props = PropertiesService.getScriptProperties();
   var raw = props.getProperty("CUSTOM_FRAMES");
   if (!raw) return [];
@@ -367,7 +402,7 @@ function getStoredFrames() {
   }
 }
 
-function saveStoredFrames(frames) {
+function saveStoredFramesMetadata(frames) {
   var props = PropertiesService.getScriptProperties();
   props.setProperty("CUSTOM_FRAMES", JSON.stringify(frames));
 }
