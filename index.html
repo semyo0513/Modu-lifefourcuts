@@ -598,33 +598,80 @@
             <div id="studio-gradient-swatches" class="studio-swatches-grid"></div>
           </div>
 
-          <!-- 4. 선택된 스티커/이미지 레이어 정밀 조작 (크기/회전/삭제) -->
-          <div id="studio-selected-layer-controls" class="studio-section" style="display: none; border-color: var(--accent-pink); background: rgba(255, 94, 142, 0.08);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-              <label class="studio-section-label" style="margin-bottom: 0; color: #ff5e8e;">🎯 선택된 요소 설정</label>
-              <span id="studio-selected-layer-name" style="font-size: 0.72rem; color: var(--text-muted);">요소</span>
+          <!-- 4. 선택된 스티커/이미지 레이어 정밀 조작 (크기/각도/반전/투명도/정렬/복제/삭제) -->
+          <div id="studio-selected-layer-controls" class="studio-section" style="display: none; border-color: var(--accent-pink); background: rgba(255, 94, 142, 0.07); padding: 10px; border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <label class="studio-section-label" style="margin-bottom: 0; color: #ff5e8e; font-weight: 700;">🎯 선택된 요소 정밀 설정</label>
+              <span id="studio-selected-layer-name" style="font-size: 0.72rem; color: #fff; background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">요소</span>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-              <div>
-                <div class="slider-label">
-                  <span>크기 (Size)</span>
-                  <span id="val-studio-layer-size">100%</span>
-                </div>
-                <input type="range" id="studio-layer-size" min="30" max="300" value="100" />
+            <!-- 크기 조절 (Size) -->
+            <div style="margin-bottom: 8px;">
+              <div class="slider-label" style="margin-bottom: 3px;">
+                <span style="font-weight: 600; font-size: 0.75rem;">🔍 크기 (Scale)</span>
+                <span id="val-studio-layer-size" style="color: #ff5e8e; font-weight: 700; font-size: 0.75rem;">100%</span>
               </div>
-              <div>
-                <div class="slider-label">
-                  <span>회전 (Rotate)</span>
-                  <span id="val-studio-layer-rotate">0°</span>
-                </div>
-                <input type="range" id="studio-layer-rotate" min="-180" max="180" value="0" />
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <button type="button" id="btn-layer-scale-down" class="btn-icon" style="padding: 3px 6px; font-size: 0.72rem;" title="10% 축소">➖</button>
+                <input type="range" id="studio-layer-size" min="20" max="400" value="100" style="flex: 1;" />
+                <button type="button" id="btn-layer-scale-up" class="btn-icon" style="padding: 3px 6px; font-size: 0.72rem;" title="10% 확대">➕</button>
+                <button type="button" id="btn-layer-scale-reset" class="btn-icon" style="padding: 3px 6px; font-size: 0.7rem;" title="100% 원본">100%</button>
               </div>
             </div>
 
-            <div style="display: flex; gap: 6px; margin-top: 6px;">
-              <button type="button" id="btn-layer-bring-front" class="btn-icon" style="flex: 1; padding: 4px 6px; font-size: 0.72rem;">맨 앞으로 🔼</button>
-              <button type="button" id="btn-delete-selected-layer" class="btn-icon" style="flex: 1; padding: 4px 6px; font-size: 0.72rem; color: #ef4444; border-color: #ef4444;">삭제 🗑️</button>
+            <!-- 회전 각도 (Rotate) -->
+            <div style="margin-bottom: 8px;">
+              <div class="slider-label" style="margin-bottom: 3px;">
+                <span style="font-weight: 600; font-size: 0.75rem;">🔄 각도 (Rotate)</span>
+                <span id="val-studio-layer-rotate" style="color: #ff5e8e; font-weight: 700; font-size: 0.75rem;">0°</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <button type="button" id="btn-layer-rot-ccw" class="btn-icon" style="padding: 3px 6px; font-size: 0.7rem;" title="왼쪽으로 90° 회전">↺ -90°</button>
+                <input type="range" id="studio-layer-rotate" min="-180" max="180" value="0" style="flex: 1;" />
+                <button type="button" id="btn-layer-rot-cw" class="btn-icon" style="padding: 3px 6px; font-size: 0.7rem;" title="오른쪽으로 90° 회전">↻ +90°</button>
+                <button type="button" id="btn-layer-rot-reset" class="btn-icon" style="padding: 3px 6px; font-size: 0.7rem;" title="각도 초기화">0°</button>
+              </div>
+            </div>
+
+            <!-- 반전 (Flip) & 투명도 (Opacity) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px;">
+              <div>
+                <div style="font-size: 0.73rem; color: var(--text-muted); margin-bottom: 3px; font-weight: 600;">🪞 반전 (Flip)</div>
+                <div style="display: flex; gap: 3px;">
+                  <button type="button" id="btn-layer-flip-x" class="btn-icon" style="flex: 1; padding: 4px 2px; font-size: 0.72rem;" title="좌우 반전">↔ 좌우</button>
+                  <button type="button" id="btn-layer-flip-y" class="btn-icon" style="flex: 1; padding: 4px 2px; font-size: 0.72rem;" title="상하 반전">↕ 상하</button>
+                </div>
+              </div>
+              <div>
+                <div class="slider-label" style="margin-bottom: 3px;">
+                  <span style="font-size: 0.73rem; color: var(--text-muted); font-weight: 600;">💧 투명도</span>
+                  <span id="val-studio-layer-opacity" style="font-size: 0.73rem; color: #ff5e8e;">100%</span>
+                </div>
+                <input type="range" id="studio-layer-opacity" min="10" max="100" value="100" />
+              </div>
+            </div>
+
+            <!-- 위치 정렬 & 미세 이동 (Nudge) -->
+            <div style="margin-bottom: 8px;">
+              <div style="font-size: 0.73rem; color: var(--text-muted); margin-bottom: 3px; font-weight: 600;">🎯 위치 정렬 & 미세 이동</div>
+              <div style="display: flex; gap: 3px; align-items: center;">
+                <button type="button" id="btn-layer-align-h" class="btn-icon" style="flex: 1; padding: 4px 2px; font-size: 0.7rem;" title="가로 중앙 정렬">가로중앙</button>
+                <button type="button" id="btn-layer-align-v" class="btn-icon" style="flex: 1; padding: 4px 2px; font-size: 0.7rem;" title="세로 중앙 정렬">세로중앙</button>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; flex: 1.2;">
+                  <button type="button" class="btn-icon btn-studio-nudge" data-dir="left" style="padding: 3px 0; font-size: 0.68rem;" title="왼쪽 미세이동">◀</button>
+                  <button type="button" class="btn-icon btn-studio-nudge" data-dir="up" style="padding: 3px 0; font-size: 0.68rem;" title="위로 미세이동">▲</button>
+                  <button type="button" class="btn-icon btn-studio-nudge" data-dir="down" style="padding: 3px 0; font-size: 0.68rem;" title="아래로 미세이동">▼</button>
+                  <button type="button" class="btn-icon btn-studio-nudge" data-dir="right" style="padding: 3px 0; font-size: 0.68rem;" title="오른쪽 미세이동">▶</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 레이어 순서 / 복제 / 삭제 -->
+            <div style="display: flex; gap: 4px;">
+              <button type="button" id="btn-layer-bring-front" class="btn-icon" style="flex: 1; padding: 4px 2px; font-size: 0.7rem;" title="맨 앞으로">맨앞 🔼</button>
+              <button type="button" id="btn-layer-send-back" class="btn-icon" style="flex: 1; padding: 4px 2px; font-size: 0.7rem;" title="맨 뒤로">맨뒤 🔽</button>
+              <button type="button" id="btn-layer-duplicate" class="btn-icon" style="flex: 1; padding: 4px 2px; font-size: 0.7rem; color: #38bdf8; border-color: #38bdf8;" title="요소 복제">복제 📋</button>
+              <button type="button" id="btn-delete-selected-layer" class="btn-icon" style="flex: 1; padding: 4px 2px; font-size: 0.7rem; color: #ef4444; border-color: #ef4444;" title="요소 삭제">삭제 🗑️</button>
             </div>
           </div>
 

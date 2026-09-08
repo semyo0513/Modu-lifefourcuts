@@ -61,9 +61,9 @@ export class FrameStudio {
       fontStyle: 'sans-serif',
       showDate: true,
       layers: [
-        { id: 'stk_1', type: 'emoji', emoji: '🎀', x: 0.5, y: 0.025, sizeRatio: 0.06, rotation: 0 },
-        { id: 'stk_2', type: 'emoji', emoji: '💖', x: 0.86, y: 0.94, sizeRatio: 0.05, rotation: 0 },
-        { id: 'stk_3', type: 'emoji', emoji: '✨', x: 0.14, y: 0.94, sizeRatio: 0.05, rotation: 0 }
+        { id: 'stk_1', type: 'emoji', emoji: '🎀', x: 0.5, y: 0.025, sizeRatio: 0.06, scale: 1, rotation: 0, flipX: false, flipY: false, opacity: 1 },
+        { id: 'stk_2', type: 'emoji', emoji: '💖', x: 0.86, y: 0.94, sizeRatio: 0.05, scale: 1, rotation: 0, flipX: false, flipY: false, opacity: 1 },
+        { id: 'stk_3', type: 'emoji', emoji: '✨', x: 0.14, y: 0.94, sizeRatio: 0.05, scale: 1, rotation: 0, flipX: false, flipY: false, opacity: 1 }
       ],
       selectedLayerId: null,
       showSamplePhotos: true
@@ -71,14 +71,22 @@ export class FrameStudio {
 
     this.samplePhotoColors = ['#e2e8f0', '#cbd5e1', '#94a3b8', '#64748b'];
 
-    // 드래그 인터랙션 상태
+    // 드래그/회전/크기조절 인터랙션 상태
     this.dragState = {
       isDragging: false,
+      mode: null, // 'move' | 'rotate' | 'resize'
       layerId: null,
       startX: 0,
       startY: 0,
       initialLayerX: 0,
-      initialLayerY: 0
+      initialLayerY: 0,
+      centerX: 0,
+      centerY: 0,
+      initialDist: 1,
+      initialScale: 1,
+      initialAngle: 0,
+      initialRotation: 0,
+      resizeHandle: null
     };
   }
 
@@ -311,20 +319,41 @@ export class FrameStudio {
       this.renderPreview();
     });
 
-    // 9. 선택된 레이어 조작 컨트롤 (크기, 회전, 삭제)
+    // 9. 선택된 레이어 조작 컨트롤 (크기, 회전, 반전, 투명도, 정렬, 미세이동, 복제, 순서, 삭제)
     const layerSizeSlider = document.getElementById('studio-layer-size');
     layerSizeSlider?.addEventListener('input', (e) => {
       const selected = this.getSelectedLayer();
       if (selected) {
-        const factor = Number(e.target.value) / 100;
-        if (selected.type === 'image') {
-          const aspect = selected.aspect || 1;
-          selected.widthRatio = Math.max(0.05, 0.25 * factor);
-          selected.heightRatio = selected.widthRatio * aspect * (this.state.presetType === 'strip_4' ? (600 / 1800) : (1200 / 1600));
-        } else {
-          selected.sizeRatio = Math.max(0.02, 0.06 * factor);
-        }
-        document.getElementById('val-studio-layer-size').textContent = `${e.target.value}%`;
+        selected.scale = Number(e.target.value) / 100;
+        const valEl = document.getElementById('val-studio-layer-size');
+        if (valEl) valEl.textContent = `${e.target.value}%`;
+        this.renderPreview();
+      }
+    });
+
+    document.getElementById('btn-layer-scale-down')?.addEventListener('click', () => {
+      const selected = this.getSelectedLayer();
+      if (selected) {
+        selected.scale = Math.max(0.2, Math.round(((selected.scale || 1.0) - 0.1) * 10) / 10);
+        this.updateLayerControlsUI();
+        this.renderPreview();
+      }
+    });
+
+    document.getElementById('btn-layer-scale-up')?.addEventListener('click', () => {
+      const selected = this.getSelectedLayer();
+      if (selected) {
+        selected.scale = Math.min(4.0, Math.round(((selected.scale || 1.0) + 0.1) * 10) / 10);
+        this.updateLayerControlsUI();
+        this.renderPreview();
+      }
+    });
+
+    document.getElementById('btn-layer-scale-reset')?.addEventListener('click', () => {
+      const selected = this.getSelectedLayer();
+      if (selected) {
+        selected.scale = 1.0;
+        this.updateLayerControlsUI();
         this.renderPreview();
       }
     });
@@ -334,7 +363,138 @@ export class FrameStudio {
       const selected = this.getSelectedLayer();
       if (selected) {
         selected.rotation = Number(e.target.value);
-        document.getElementById('val-studio-layer-rotate').textContent = `${selected.rotation}°`;
+        const valEl = document.getElementById('val-studio-layer-rotate');
+        if (valEl) valEl.textContent = `${selected.rotation}°`;
+        this.renderPreview();
+      }
+    });
+
+    document.getElementById('btn-layer-rot-ccw')?.addEventListener('click', () => {
+      const selected = this.getSelectedLayer();
+      if (selected) {
+        let r = (selected.rotation || 0) - 90;
+        while (r < -180) r += 360;
+        selected.rotation = r;
+        this.updateLayerControlsUI();
+        this.renderPreview();
+      }
+    });
+
+    document.getElementById('btn-layer-rot-cw')?.addEventListener('click', () => {
+      const selected = this.getSelectedLayer();
+      if (selected) {
+        let r = (selected.rotation || 0) + 90;
+        while (r > 180) r -= 360;
+        selected.rotation = r;
+        this.updateLayerControlsUI();
+        this.renderPreview();
+      }
+    });
+
+    document.getElementById('btn-layer-rot-reset')?.addEventListener('click', () => {
+      const selected = this.getSelectedLayer();
+      if (selected) {
+        selected.rotation = 0;
+        this.updateLayerControlsUI();
+        this.renderPreview();
+      }
+    });
+
+    document.getElementById('btn-layer-flip-x')?.addEventListener('click', () => {
+      sound.playClick();
+      const selected = this.getSelectedLayer();
+      if (selected) {
+        selected.flipX = !selected.flipX;
+        this.updateLayerControlsUI();
+        this.renderPreview();
+      }
+    });
+
+    document.getElementById('btn-layer-flip-y')?.addEventListener('click', () => {
+      sound.playClick();
+      const selected = this.getSelectedLayer();
+      if (selected) {
+        selected.flipY = !selected.flipY;
+        this.updateLayerControlsUI();
+        this.renderPreview();
+      }
+    });
+
+    const layerOpacitySlider = document.getElementById('studio-layer-opacity');
+    layerOpacitySlider?.addEventListener('input', (e) => {
+      const selected = this.getSelectedLayer();
+      if (selected) {
+        selected.opacity = Number(e.target.value) / 100;
+        const valEl = document.getElementById('val-studio-layer-opacity');
+        if (valEl) valEl.textContent = `${e.target.value}%`;
+        this.renderPreview();
+      }
+    });
+
+    document.getElementById('btn-layer-align-h')?.addEventListener('click', () => {
+      sound.playClick();
+      const selected = this.getSelectedLayer();
+      if (selected) {
+        selected.x = 0.5;
+        this.renderPreview();
+      }
+    });
+
+    document.getElementById('btn-layer-align-v')?.addEventListener('click', () => {
+      sound.playClick();
+      const selected = this.getSelectedLayer();
+      if (selected) {
+        selected.y = 0.5;
+        this.renderPreview();
+      }
+    });
+
+    document.querySelectorAll('.btn-studio-nudge').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const selected = this.getSelectedLayer();
+        if (!selected) return;
+        const dir = btn.dataset.dir;
+        const step = 0.015;
+        if (dir === 'left') selected.x = Math.max(0.01, selected.x - step);
+        if (dir === 'right') selected.x = Math.min(0.99, selected.x + step);
+        if (dir === 'up') selected.y = Math.max(0.01, selected.y - step);
+        if (dir === 'down') selected.y = Math.min(0.99, selected.y + step);
+        this.renderPreview();
+      });
+    });
+
+    document.getElementById('btn-layer-bring-front')?.addEventListener('click', () => {
+      sound.playClick();
+      const idx = this.state.layers.findIndex(l => l.id === this.state.selectedLayerId);
+      if (idx > -1 && idx < this.state.layers.length - 1) {
+        const item = this.state.layers.splice(idx, 1)[0];
+        this.state.layers.push(item);
+        this.renderPreview();
+      }
+    });
+
+    document.getElementById('btn-layer-send-back')?.addEventListener('click', () => {
+      sound.playClick();
+      const idx = this.state.layers.findIndex(l => l.id === this.state.selectedLayerId);
+      if (idx > 0) {
+        const item = this.state.layers.splice(idx, 1)[0];
+        this.state.layers.unshift(item);
+        this.renderPreview();
+      }
+    });
+
+    document.getElementById('btn-layer-duplicate')?.addEventListener('click', () => {
+      sound.playClick();
+      const selected = this.getSelectedLayer();
+      if (selected) {
+        const clone = {
+          ...selected,
+          id: (selected.type === 'image' ? 'img_' : 'emoji_') + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+          x: Math.min(0.95, selected.x + 0.04),
+          y: Math.min(0.95, selected.y + 0.04)
+        };
+        this.state.layers.push(clone);
+        this.selectLayer(clone.id);
         this.renderPreview();
       }
     });
@@ -343,15 +503,6 @@ export class FrameStudio {
       if (this.state.selectedLayerId) {
         sound.playClick();
         this.removeLayer(this.state.selectedLayerId);
-      }
-    });
-
-    document.getElementById('btn-layer-bring-front')?.addEventListener('click', () => {
-      const idx = this.state.layers.findIndex(l => l.id === this.state.selectedLayerId);
-      if (idx > -1) {
-        const item = this.state.layers.splice(idx, 1)[0];
-        this.state.layers.push(item);
-        this.renderPreview();
       }
     });
 
@@ -372,34 +523,63 @@ export class FrameStudio {
     });
   }
 
-  // 드래그 인터랙션 이벤트 바인딩 (마우스 & 터치 지원)
+  // 드래그/회전/크기조절 인터랙션 이벤트 바인딩 (마우스 & 터치 지원)
   bindDragEvents() {
     if (!this.interactiveStage) return;
+
+    // 빈 영역 클릭 시 레이어 선택 해제
+    this.interactiveStage.addEventListener('pointerdown', (e) => {
+      if (e.target === this.interactiveStage || e.target === this.dragOverlay || e.target === this.previewImg) {
+        this.selectLayer(null);
+      }
+    });
 
     const onPointerMove = (e) => {
       if (!this.dragState.isDragging || !this.dragState.layerId) return;
       e.preventDefault();
 
+      const layer = this.state.layers.find(l => l.id === this.dragState.layerId);
+      if (!layer) return;
+
       const rect = this.interactiveStage.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
 
-      const currentX = e.clientX;
-      const currentY = e.clientY;
-
-      const deltaXRatio = (currentX - this.dragState.startX) / rect.width;
-      const deltaYRatio = (currentY - this.dragState.startY) / rect.height;
-
-      const layer = this.state.layers.find(l => l.id === this.dragState.layerId);
-      if (layer) {
-        layer.x = Math.max(0.02, Math.min(0.98, this.dragState.initialLayerX + deltaXRatio));
-        layer.y = Math.max(0.02, Math.min(0.98, this.dragState.initialLayerY + deltaYRatio));
+      if (this.dragState.mode === 'move') {
+        const deltaXRatio = (e.clientX - this.dragState.startX) / rect.width;
+        const deltaYRatio = (e.clientY - this.dragState.startY) / rect.height;
+        layer.x = Math.max(0.01, Math.min(0.99, this.dragState.initialLayerX + deltaXRatio));
+        layer.y = Math.max(0.01, Math.min(0.99, this.dragState.initialLayerY + deltaYRatio));
         this.renderPreview();
+      } else if (this.dragState.mode === 'rotate') {
+        const currentAngle = Math.atan2(e.clientY - this.dragState.centerY, e.clientX - this.dragState.centerX) * (180 / Math.PI);
+        let diff = currentAngle - this.dragState.initialAngle;
+        let newRot = Math.round(this.dragState.initialRotation + diff);
+        while (newRot > 180) newRot -= 360;
+        while (newRot < -180) newRot += 360;
+        // 각도 스냅 (0°, 90°, -90°, 180° 부근에서 자석 흡착)
+        if (Math.abs(newRot) < 3) newRot = 0;
+        if (Math.abs(newRot - 90) < 3) newRot = 90;
+        if (Math.abs(newRot + 90) < 3) newRot = -90;
+        if (Math.abs(Math.abs(newRot) - 180) < 3) newRot = 180;
+        layer.rotation = newRot;
+        this.updateLayerControlsUI();
+        this.renderPreview();
+      } else if (this.dragState.mode === 'resize') {
+        const currentDist = Math.hypot(e.clientX - this.dragState.centerX, e.clientY - this.dragState.centerY);
+        if (this.dragState.initialDist > 5) {
+          const ratio = currentDist / this.dragState.initialDist;
+          const newScale = Math.max(0.2, Math.min(4.0, this.dragState.initialScale * ratio));
+          layer.scale = Math.round(newScale * 100) / 100;
+          this.updateLayerControlsUI();
+          this.renderPreview();
+        }
       }
     };
 
     const onPointerUp = () => {
       if (this.dragState.isDragging) {
         this.dragState.isDragging = false;
+        this.dragState.mode = null;
         this.dragState.layerId = null;
       }
     };
@@ -407,6 +587,43 @@ export class FrameStudio {
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
     window.addEventListener('pointercancel', onPointerUp);
+
+    // 키보드 미세 조작 & 단축키
+    window.addEventListener('keydown', (e) => {
+      if (!this.modal || !this.modal.classList.contains('active')) return;
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+        return;
+      }
+
+      const selected = this.getSelectedLayer();
+      if (!selected) return;
+
+      const step = e.shiftKey ? 0.03 : 0.006;
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        selected.x = Math.max(0.01, selected.x - step);
+        this.renderPreview();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        selected.x = Math.min(0.99, selected.x + step);
+        this.renderPreview();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        selected.y = Math.max(0.01, selected.y - step);
+        this.renderPreview();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        selected.y = Math.min(0.99, selected.y + step);
+        this.renderPreview();
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        sound.playClick();
+        this.removeLayer(selected.id);
+      } else if (e.key === 'Escape') {
+        this.selectLayer(null);
+      }
+    });
   }
 
   // 사용자 업로드 이미지 레이어 추가
@@ -434,7 +651,11 @@ export class FrameStudio {
             y: 0.85,
             widthRatio: widthRatio,
             heightRatio: heightRatio,
-            rotation: 0
+            scale: 1.0,
+            rotation: 0,
+            flipX: false,
+            flipY: false,
+            opacity: 1.0
           };
 
           this.state.layers.push(newLayer);
@@ -457,7 +678,11 @@ export class FrameStudio {
       x: 0.5,
       y: 0.88,
       sizeRatio: 0.06,
-      rotation: 0
+      scale: 1.0,
+      rotation: 0,
+      flipX: false,
+      flipY: false,
+      opacity: 1.0
     };
 
     this.state.layers.push(newLayer);
@@ -486,7 +711,7 @@ export class FrameStudio {
     return this.state.layers.find(l => l.id === this.state.selectedLayerId);
   }
 
-  // 선택된 레이어 조작 도구(슬라이더 등) 활성화/비활성화 UI 동기화
+  // 선택된 레이어 조작 도구(슬라이더, 반전 버튼 등) 활성화/비활성화 UI 동기화
   updateLayerControlsUI() {
     const controlsWrap = document.getElementById('studio-selected-layer-controls');
     const selected = this.getSelectedLayer();
@@ -499,10 +724,39 @@ export class FrameStudio {
       if (nameBadge) {
         nameBadge.textContent = selected.type === 'image' ? `🖼️ ${selected.name || '이미지 요소'}` : `✨ 스티커 [ ${selected.emoji} ]`;
       }
+
+      // 크기 슬라이더 & 라벨 동기화
+      const scalePct = Math.round((selected.scale !== undefined ? selected.scale : 1.0) * 100);
+      const sizeSlider = document.getElementById('studio-layer-size');
+      if (sizeSlider) sizeSlider.value = scalePct;
+      const sizeVal = document.getElementById('val-studio-layer-size');
+      if (sizeVal) sizeVal.textContent = `${scalePct}%`;
+
+      // 회전 각도 슬라이더 & 라벨 동기화
+      const rot = selected.rotation || 0;
       const rotSlider = document.getElementById('studio-layer-rotate');
-      if (rotSlider) {
-        rotSlider.value = selected.rotation || 0;
-        document.getElementById('val-studio-layer-rotate').textContent = `${selected.rotation || 0}°`;
+      if (rotSlider) rotSlider.value = rot;
+      const rotVal = document.getElementById('val-studio-layer-rotate');
+      if (rotVal) rotVal.textContent = `${rot}°`;
+
+      // 투명도 슬라이더 & 라벨 동기화
+      const opPct = Math.round((selected.opacity !== undefined ? selected.opacity : 1.0) * 100);
+      const opSlider = document.getElementById('studio-layer-opacity');
+      if (opSlider) opSlider.value = opPct;
+      const opVal = document.getElementById('val-studio-layer-opacity');
+      if (opVal) opVal.textContent = `${opPct}%`;
+
+      // 좌우/상하 반전 버튼 하이라이트 동기화
+      const flipXBtn = document.getElementById('btn-layer-flip-x');
+      if (flipXBtn) {
+        if (selected.flipX) flipXBtn.classList.add('btn-layer-active-toggle');
+        else flipXBtn.classList.remove('btn-layer-active-toggle');
+      }
+
+      const flipYBtn = document.getElementById('btn-layer-flip-y');
+      if (flipYBtn) {
+        if (selected.flipY) flipYBtn.classList.add('btn-layer-active-toggle');
+        else flipYBtn.classList.remove('btn-layer-active-toggle');
       }
     } else {
       controlsWrap.style.display = 'none';
@@ -639,7 +893,7 @@ export class FrameStudio {
     }
     ctx.restore();
 
-    // 4. 사용자 업로드 이미지 및 스티커 레이어 렌더링 (자유 드래그 배치 반영)
+    // 4. 사용자 업로드 이미지 및 스티커 레이어 렌더링 (각도, 크기, 좌우반전, 상하반전, 투명도 반영)
     if (Array.isArray(this.state.layers)) {
       this.state.layers.forEach(layer => {
         ctx.save();
@@ -651,14 +905,24 @@ export class FrameStudio {
           ctx.rotate((layer.rotation * Math.PI) / 180);
         }
 
+        const scaleX = (layer.flipX ? -1 : 1);
+        const scaleY = (layer.flipY ? -1 : 1);
+        ctx.scale(scaleX, scaleY);
+
+        if (layer.opacity !== undefined && layer.opacity !== null) {
+          ctx.globalAlpha = Math.max(0.05, Math.min(1.0, layer.opacity));
+        }
+
+        const scaleMultiplier = layer.scale !== undefined ? layer.scale : 1.0;
+
         if (layer.type === 'image' && layer.img) {
-          const lWidth = (layer.widthRatio || 0.25) * width;
-          const lHeight = (layer.heightRatio || 0.25) * height;
+          const lWidth = (layer.widthRatio || 0.28) * width * scaleMultiplier;
+          const lHeight = (layer.heightRatio || 0.28) * height * scaleMultiplier;
           ctx.drawImage(layer.img, -lWidth / 2, -lHeight / 2, lWidth, lHeight);
         } else if (layer.type === 'emoji') {
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          const fontSize = Math.round((layer.sizeRatio || 0.06) * height);
+          const fontSize = Math.round((layer.sizeRatio || 0.06) * height * scaleMultiplier);
           ctx.font = `${fontSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
           ctx.fillText(layer.emoji, 0, 0);
         }
@@ -684,7 +948,7 @@ export class FrameStudio {
     this.renderOverlayHandles();
   }
 
-  // 드래그 가능한 인터랙티브 오버레이 핸들 렌더링
+  // 드래그/회전/크기조절 인터랙티브 오버레이 핸들 렌더링
   renderOverlayHandles() {
     if (!this.dragOverlay) return;
     this.dragOverlay.innerHTML = '';
@@ -698,38 +962,109 @@ export class FrameStudio {
       handle.dataset.layerId = layer.id;
       handle.style.left = `${layer.x * 100}%`;
       handle.style.top = `${layer.y * 100}%`;
-      handle.style.transform = `translate(-50%, -50%) rotate(${layer.rotation || 0}deg)`;
+
+      const rot = layer.rotation || 0;
+      const flipScaleX = layer.flipX ? -1 : 1;
+      const flipScaleY = layer.flipY ? -1 : 1;
+      handle.style.transform = `translate(-50%, -50%) rotate(${rot}deg) scale(${flipScaleX}, ${flipScaleY})`;
+      handle.style.opacity = `${layer.opacity !== undefined ? layer.opacity : 1.0}`;
+
+      const scaleMultiplier = layer.scale !== undefined ? layer.scale : 1.0;
 
       if (layer.type === 'image') {
-        const wPct = (layer.widthRatio || 0.25) * 100;
-        const hPct = (layer.heightRatio || 0.25) * 100;
+        const wPct = (layer.widthRatio || 0.28) * scaleMultiplier * 100;
+        const hPct = (layer.heightRatio || 0.28) * scaleMultiplier * 100;
         handle.style.width = `${wPct}%`;
         handle.style.height = `${hPct}%`;
         handle.innerHTML = `
           <div class="drag-handle-inner">
             <img src="${layer.src}" class="drag-thumb-img" />
             <div class="drag-item-tag">🖼️</div>
-            ${isSelected ? '<button type="button" class="btn-quick-del-handle" title="삭제">&times;</button>' : ''}
+            ${isSelected ? `
+              <div class="studio-rotate-line"></div>
+              <div class="studio-rotate-handle" title="드래그하여 각도 회전"></div>
+              <div class="studio-resize-handle nw" data-handle="nw" title="크기 조절"></div>
+              <div class="studio-resize-handle ne" data-handle="ne" title="크기 조절"></div>
+              <div class="studio-resize-handle se" data-handle="se" title="크기 조절"></div>
+              <div class="studio-resize-handle sw" data-handle="sw" title="크기 조절"></div>
+              <button type="button" class="btn-quick-del-handle" title="삭제">&times;</button>
+            ` : ''}
           </div>
         `;
       } else {
-        const sizePct = (layer.sizeRatio || 0.06) * 100;
+        const sizePct = (layer.sizeRatio || 0.06) * scaleMultiplier * 100;
         handle.style.width = `${sizePct * 1.5}%`;
         handle.style.height = `${sizePct * 1.5}%`;
         handle.innerHTML = `
           <div class="drag-handle-inner emoji-inner">
             <span style="font-size: 1.5rem; line-height: 1;">${layer.emoji}</span>
-            ${isSelected ? '<button type="button" class="btn-quick-del-handle" title="삭제">&times;</button>' : ''}
+            ${isSelected ? `
+              <div class="studio-rotate-line"></div>
+              <div class="studio-rotate-handle" title="드래그하여 각도 회전"></div>
+              <div class="studio-resize-handle nw" data-handle="nw" title="크기 조절"></div>
+              <div class="studio-resize-handle ne" data-handle="ne" title="크기 조절"></div>
+              <div class="studio-resize-handle se" data-handle="se" title="크기 조절"></div>
+              <div class="studio-resize-handle sw" data-handle="sw" title="크기 조절"></div>
+              <button type="button" class="btn-quick-del-handle" title="삭제">&times;</button>
+            ` : ''}
           </div>
         `;
       }
 
-      // 드래그 시작 이벤트
-      handle.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('.btn-quick-del-handle')) {
+      // 회전 핸들 이벤트 바인딩
+      const rotHandle = handle.querySelector('.studio-rotate-handle');
+      if (rotHandle) {
+        rotHandle.addEventListener('pointerdown', (e) => {
+          e.stopPropagation();
+          this.selectLayer(layer.id);
+          const rect = this.interactiveStage.getBoundingClientRect();
+          const centerX = rect.left + layer.x * rect.width;
+          const centerY = rect.top + layer.y * rect.height;
+
+          this.dragState.isDragging = true;
+          this.dragState.mode = 'rotate';
+          this.dragState.layerId = layer.id;
+          this.dragState.centerX = centerX;
+          this.dragState.centerY = centerY;
+          this.dragState.initialAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
+          this.dragState.initialRotation = layer.rotation || 0;
+          try { rotHandle.setPointerCapture(e.pointerId); } catch (err) {}
+        });
+      }
+
+      // 4방향 코너 크기 조절 핸들 이벤트 바인딩
+      handle.querySelectorAll('.studio-resize-handle').forEach(resizeEl => {
+        resizeEl.addEventListener('pointerdown', (e) => {
+          e.stopPropagation();
+          this.selectLayer(layer.id);
+          const rect = this.interactiveStage.getBoundingClientRect();
+          const centerX = rect.left + layer.x * rect.width;
+          const centerY = rect.top + layer.y * rect.height;
+
+          this.dragState.isDragging = true;
+          this.dragState.mode = 'resize';
+          this.dragState.layerId = layer.id;
+          this.dragState.centerX = centerX;
+          this.dragState.centerY = centerY;
+          this.dragState.initialDist = Math.hypot(e.clientX - centerX, e.clientY - centerY) || 1;
+          this.dragState.initialScale = layer.scale !== undefined ? layer.scale : 1.0;
+          try { resizeEl.setPointerCapture(e.pointerId); } catch (err) {}
+        });
+      });
+
+      // 삭제 버튼 이벤트 바인딩
+      const delBtn = handle.querySelector('.btn-quick-del-handle');
+      if (delBtn) {
+        delBtn.addEventListener('pointerdown', (e) => {
           e.stopPropagation();
           sound.playClick();
           this.removeLayer(layer.id);
+        });
+      }
+
+      // 요소 본체 드래그 이동 시작 이벤트
+      handle.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.studio-rotate-handle') || e.target.closest('.studio-resize-handle') || e.target.closest('.btn-quick-del-handle')) {
           return;
         }
 
@@ -737,6 +1072,7 @@ export class FrameStudio {
         this.selectLayer(layer.id);
 
         this.dragState.isDragging = true;
+        this.dragState.mode = 'move';
         this.dragState.layerId = layer.id;
         this.dragState.startX = e.clientX;
         this.dragState.startY = e.clientY;
