@@ -189,20 +189,35 @@
           </button>
         </aside>
 
-        <!-- 우측 메인 패널: 대형 확대 보정 뷰 & 사진 선택 풀 & 프레임 슬롯 순서 -->
+        <!-- 중앙 메인: 설정한 프레임과 함께 실시간으로 사진이 보여지는 라이브 프레임 뷰 -->
+        <div class="editor-frame-stage">
+          <div class="frame-stage-header">
+            <span id="editor-frame-badge" class="frame-stage-badge">🖼️ 프레임 실시간 미리보기</span>
+            <span class="frame-stage-hint">사진 클릭: 보정 선택 | ◀ ▶: 순서 이동</span>
+          </div>
+
+          <div class="live-frame-container-outer">
+            <div id="live-frame-mockup" class="live-frame-mockup">
+              <div id="live-frame-slots-layer" class="live-frame-slots-layer"></div>
+              <img id="live-frame-overlay-img" class="live-frame-overlay-img" alt="Frame Overlay" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 우측 컨트롤 패널: 대형 확대 보정 뷰 & 사진 선택 풀 & 최종 완성 버튼 -->
         <div class="editor-main-panel">
           <!-- 대형 실시간 보정 확대 뷰 (더블클릭 또는 탐색으로 확인) -->
           <div id="editor-inspector-card" class="inspector-card">
             <div class="inspector-header">
               <div style="display: flex; align-items: center; gap: 8px;">
-                <span class="inspector-badge">🔍 대형 실시간 보정 뷰</span>
-                <span id="inspector-index-text" style="font-size: 0.95rem; font-weight: 700; color: var(--accent-pink);">1 / 6 번째 사진</span>
+                <span class="inspector-badge">🔍 사진 상세 뷰</span>
+                <span id="inspector-index-text" style="font-size: 0.85rem; font-weight: 700; color: var(--accent-pink);">1 / 6 번째</span>
               </div>
               <div class="inspector-actions">
-                <button type="button" id="btn-inspector-prev" class="btn-icon" title="이전 사진">◀ 이전</button>
-                <button type="button" id="btn-inspector-next" class="btn-icon" title="다음 사진">다음 ▶</button>
-                <button type="button" id="btn-inspector-toggle-select" class="btn-icon" style="background: var(--accent-gradient); border: none; font-weight: 600; color: #fff;">
-                  <span id="inspector-select-label">프레임 슬롯에 담기 ➕</span>
+                <button type="button" id="btn-inspector-prev" class="btn-icon" title="이전 사진">◀</button>
+                <button type="button" id="btn-inspector-next" class="btn-icon" title="다음 사진">▶</button>
+                <button type="button" id="btn-inspector-toggle-select" class="btn-icon" style="background: var(--accent-gradient); border: none; font-weight: 600; color: #fff; font-size: 0.75rem; padding: 4px 8px;">
+                  <span id="inspector-select-label">담기 ➕</span>
                 </button>
               </div>
             </div>
@@ -215,21 +230,16 @@
           <!-- 촬영된 6장 사진 풀 -->
           <div class="pool-container">
             <div class="editor-section-title">
-              <span>촬영된 6장 사진 (클릭: 슬롯 담기 | 더블클릭: 대형 뷰)</span>
+              <span>📸 촬영된 사진 (클릭: 슬롯 교체/담기)</span>
             </div>
             <div id="editor-thumbnails" class="pool-grid"></div>
           </div>
 
-          <!-- 프레임 슬롯 및 순서 변경 -->
-          <div class="slots-container">
-            <div class="editor-section-title">
-              <span>프레임 슬롯 배치 (화살표: 위치 이동 | 더블클릭: 대형 뷰)</span>
-            </div>
-            <div id="editor-slots" class="slots-grid"></div>
-          </div>
+          <!-- 호환성을 위한 숨김 슬롯 컨테이너 -->
+          <div id="editor-slots" style="display: none;"></div>
 
-          <div class="action-bar compact-action-bar">
-            <button id="btn-editor-done" class="btn-primary">
+          <div class="action-bar compact-action-bar" style="margin-top: auto;">
+            <button id="btn-editor-done" class="btn-primary" style="width: 100%; justify-content: center; padding: 12px 16px; font-size: 0.95rem;">
               <span>최종 완성본 만들기</span>
               <span>✨</span>
             </button>

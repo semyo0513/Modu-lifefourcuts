@@ -512,20 +512,32 @@ html, body {
 }
 
 /* --------------------------------------------------------------------------
-   Step 4: Editor (100vh Fit & Per-photo Filter Controls)
+   Step 4: Editor (100vh Fit & Per-photo Filter Controls & Live Frame Preview)
    -------------------------------------------------------------------------- */
 .editor-layout {
   display: grid;
-  grid-template-columns: 290px 1fr;
-  gap: 14px;
+  grid-template-columns: 270px minmax(260px, 1fr) 310px;
+  gap: 12px;
   height: calc(100% - 35px);
   overflow: hidden;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1060px) {
+  .editor-layout {
+    grid-template-columns: 260px 1fr;
+    overflow-y: auto;
+  }
+  .editor-main-panel {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 768px) {
   .editor-layout {
     grid-template-columns: 1fr;
-    overflow-y: auto;
+  }
+  .editor-main-panel {
+    grid-column: span 1;
   }
 }
 
@@ -533,17 +545,17 @@ html, body {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  padding: 12px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   overflow-y: auto;
 }
 
 .editor-section-title {
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-weight: 700;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -553,7 +565,7 @@ html, body {
 .preset-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  gap: 5px;
 }
 
 /* 버튼 글자 줄바꿈 방지 및 균일한 폰트 적용 */
@@ -561,14 +573,14 @@ html, body {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   color: var(--text-main);
-  padding: 8px 6px;
+  padding: 6px 4px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  font-size: clamp(0.72rem, 0.9vw, 0.82rem);
+  gap: 4px;
+  font-size: clamp(0.7rem, 0.85vw, 0.8rem);
   font-weight: 600;
   white-space: nowrap;
   word-break: keep-all;
@@ -590,22 +602,22 @@ html, body {
 .slider-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   background: rgba(0, 0, 0, 0.15);
-  padding: 8px;
+  padding: 7px;
   border-radius: var(--radius-sm);
 }
 
 .slider-item {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 
 .slider-label {
   display: flex;
   justify-content: space-between;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 
@@ -627,8 +639,8 @@ input[type="range"] {
   border-color: var(--accent-pink);
   color: var(--accent-pink);
   font-weight: 700;
-  font-size: 0.8rem;
-  padding: 8px;
+  font-size: 0.78rem;
+  padding: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -642,13 +654,193 @@ input[type="range"] {
   color: #fff;
 }
 
+/* 중앙 메인: 설정한 프레임 실시간 프리뷰 영역 (Live Frame Stage) */
+.editor-frame-stage {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  height: 100%;
+  position: relative;
+}
+
+.frame-stage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 6px;
+  gap: 6px;
+}
+
+.frame-stage-badge {
+  background: rgba(255, 94, 142, 0.15);
+  color: var(--accent-pink);
+  border: 1px solid rgba(255, 94, 142, 0.35);
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.frame-stage-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.live-frame-container-outer {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 4px;
+}
+
+.live-frame-mockup {
+  position: relative;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  overflow: hidden;
+  max-height: 100%;
+  max-width: 100%;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.live-frame-overlay-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.live-frame-slots-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+}
+
+.live-slot-item {
+  position: absolute;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #111;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: box-shadow 0.2s ease, outline 0.15s ease, transform 0.15s ease;
+}
+
+.live-slot-item:hover {
+  transform: scale(1.015);
+  z-index: 6;
+}
+
+.live-slot-item.active {
+  outline: 3px solid #ff5e8e;
+  outline-offset: -1px;
+  box-shadow: 0 0 16px rgba(255, 94, 142, 0.8);
+  z-index: 7;
+}
+
+.live-slot-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: filter 0.1s ease;
+}
+
+.live-slot-badge {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.live-slot-item.active .live-slot-badge {
+  background: var(--accent-pink);
+}
+
+.live-slot-controls {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 3px;
+  background: rgba(0, 0, 0, 0.85);
+  padding: 2px 4px;
+  border-radius: 4px;
+  z-index: 9;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.live-slot-item:hover .live-slot-controls {
+  opacity: 1;
+}
+
+.live-slot-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #fff;
+  font-size: 0.65rem;
+  padding: 2px 5px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.live-slot-btn:hover:not(:disabled) {
+  background: var(--accent-pink);
+}
+
+.live-slot-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.7rem;
+  text-align: center;
+  background: #181818;
+}
+
 /* Editor Right Main Panel */
 .editor-main-panel {
   display: flex;
   flex-direction: column;
   gap: 8px;
   overflow-y: auto;
-  padding-right: 4px;
+  padding-right: 2px;
 }
 
 /* 대형 사진 실시간 보정 인스펙터 카드 */
@@ -656,10 +848,10 @@ input[type="range"] {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  padding: 10px 12px;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
 }
 
@@ -677,19 +869,19 @@ input[type="range"] {
   border: 1px solid rgba(255, 94, 142, 0.35);
   padding: 2px 8px;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
 }
 
 .inspector-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .inspector-img-container {
   width: 100%;
-  height: 180px;
+  height: 140px;
   background: #000000;
   border-radius: var(--radius-sm);
   overflow: hidden;
@@ -717,7 +909,7 @@ input[type="range"] {
 .pool-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
+  gap: 5px;
 }
 
 .editor-pool-item {
@@ -757,9 +949,9 @@ input[type="range"] {
   left: 2px;
   background: rgba(0, 0, 0, 0.75);
   color: #fff;
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   font-weight: 700;
-  padding: 1px 5px;
+  padding: 1px 4px;
   border-radius: 3px;
 }
 
@@ -767,93 +959,8 @@ input[type="range"] {
   background: var(--accent-pink);
 }
 
-/* Frame Slots */
-.slots-container {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 8px 10px;
-}
-
-.slots-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-  gap: 8px;
-}
-
-.editor-slot-card {
-  background: var(--bg-card);
-  border: 2px dashed var(--border-color);
-  border-radius: var(--radius-sm);
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: center;
-}
-
-.editor-slot-card.filled {
-  border-style: solid;
-  border-color: var(--accent-purple);
-}
-
-.slot-header {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--text-muted);
-}
-
-.slot-img-wrap {
-  width: 100%;
-  aspect-ratio: 4/3;
-  border-radius: 4px;
-  overflow: hidden;
-  background: #000;
-  cursor: pointer;
-}
-
-.slot-img-wrap img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.slot-empty-placeholder {
-  width: 100%;
-  aspect-ratio: 4/3;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  font-size: 0.7rem;
-  color: var(--text-muted);
-}
-
-.slot-controls {
-  display: flex;
-  gap: 4px;
-  width: 100%;
-}
-
-.btn-slot-nav {
-  flex: 1;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  color: var(--text-main);
-  padding: 2px;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 0.7rem;
-}
-
-.btn-slot-nav:hover:not(:disabled) {
-  background: var(--accent-pink);
-  border-color: var(--accent-pink);
-}
-
 .compact-action-bar {
-  margin-top: 4px;
+  margin-top: auto;
   justify-content: flex-end;
 }
 

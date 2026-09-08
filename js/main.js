@@ -92,6 +92,12 @@ class App {
     this.inspectorIndexText = document.getElementById('inspector-index-text');
     this.inspectorSelectLabel = document.getElementById('inspector-select-label');
 
+    // Live Frame Mockup elements
+    this.editorFrameBadge = document.getElementById('editor-frame-badge');
+    this.liveFrameMockup = document.getElementById('live-frame-mockup');
+    this.liveFrameSlotsLayer = document.getElementById('live-frame-slots-layer');
+    this.liveFrameOverlayImg = document.getElementById('live-frame-overlay-img');
+
     // Preview elements
     this.previewImageEl = document.getElementById('preview-final-image');
     this.previewLoadingEl = document.getElementById('preview-loading');
@@ -546,6 +552,7 @@ class App {
     this.currentInspectedIndex = 0;
     this.renderFilterPresets();
     this.syncSliderUIFromEditor();
+    this.renderLiveFrameMockup();
     this.renderEditorThumbnailsAndSlots();
     this.updateInspectorView();
     this.updateEditorPreviewStyles();
@@ -586,7 +593,7 @@ class App {
     this.valSaturation.textContent = `${s.saturation}%`;
   }
 
-  // 각 사진의 개별 필터를 모든 썸네일과 대형 뷰에 동기화
+  // 각 사진의 개별 필터를 모든 썸네일과 대형 뷰, 라이브 프레임에 동기화
   updateEditorPreviewStyles() {
     // 1. 대형 인스펙터 뷰 필터 적용
     if (this.largePreviewImg) {
@@ -607,6 +614,125 @@ class App {
       if (!isNaN(idx)) {
         img.style.filter = this.editor.getFilterStringForPhoto(idx);
       }
+    });
+
+    // 4. 실시간 프레임 목업 슬롯 이미지 필터 적용
+    document.querySelectorAll('.live-slot-img').forEach(img => {
+      const idx = Number(img.dataset.photoIdx);
+      if (!isNaN(idx)) {
+        img.style.filter = this.editor.getFilterStringForPhoto(idx);
+      }
+    });
+  }
+
+  // 실시간 선택된 프레임과 배치된 사진 렌더링
+  renderLiveFrameMockup() {
+    if (!this.liveFrameMockup || !this.selectedFrame) return;
+
+    if (this.editorFrameBadge) {
+      this.editorFrameBadge.textContent = `🖼️ ${this.selectedFrame.name}`;
+    }
+
+    const canvas = this.selectedFrame.canvas || { width: 600, height: 1800 };
+    this.liveFrameMockup.style.aspectRatio = `${canvas.width} / ${canvas.height}`;
+
+    if (this.liveFrameOverlayImg) {
+      this.liveFrameOverlayImg.src = this.selectedFrame.file || '';
+    }
+
+    if (!this.liveFrameSlotsLayer) return;
+    this.liveFrameSlotsLayer.innerHTML = '';
+
+    const slots = this.selectedFrame.slots || [];
+    slots.forEach((slot, slotIdx) => {
+      const leftPct = (slot.x / canvas.width) * 100;
+      const topPct = (slot.y / canvas.height) * 100;
+      const widthPct = (slot.w / canvas.width) * 100;
+      const heightPct = (slot.h / canvas.height) * 100;
+
+      const photoIdx = this.editor.selectedIndices[slotIdx];
+      const hasPhoto = photoIdx !== undefined;
+      const isInspected = hasPhoto && photoIdx === this.currentInspectedIndex;
+
+      const slotEl = document.createElement('div');
+      slotEl.className = `live-slot-item ${hasPhoto ? 'filled' : 'empty'} ${isInspected ? 'active' : ''}`;
+      slotEl.style.left = `${leftPct}%`;
+      slotEl.style.top = `${topPct}%`;
+      slotEl.style.width = `${widthPct}%`;
+      slotEl.style.height = `${heightPct}%`;
+
+      if (hasPhoto) {
+        const photoSrc = this.editor.rawShots[photoIdx];
+        const filter = this.editor.getFilterStringForPhoto(photoIdx);
+
+        slotEl.innerHTML = `
+          <img src="${photoSrc}" class="editor-preview-img live-slot-img" data-photo-idx="${photoIdx}" style="filter: ${filter};" alt="Slot ${slotIdx + 1}" />
+          <div class="live-slot-badge">${slotIdx + 1}</div>
+          <div class="live-slot-controls">
+            <button type="button" class="live-slot-btn" data-action="left" ${slotIdx === 0 ? 'disabled' : ''} title="앞으로">◀</button>
+            <button type="button" class="live-slot-btn" data-action="edit" title="보정">🎨</button>
+            <button type="button" class="live-slot-btn" data-action="right" ${slotIdx === slots.length - 1 ? 'disabled' : ''} title="뒤로">▶</button>
+            <button type="button" class="live-slot-btn" data-action="remove" title="해제">✖</button>
+          </div>
+        `;
+
+        slotEl.addEventListener('click', (e) => {
+          if (e.target.closest('.live-slot-controls')) return;
+          sound.playClick();
+          this.setInspectedPhoto(photoIdx);
+        });
+
+        slotEl.querySelector('[data-action="left"]')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          sound.playClick();
+          this.editor.swapSlots(slotIdx, slotIdx - 1);
+          this.renderEditorThumbnailsAndSlots();
+          this.updateEditorPreviewStyles();
+        });
+
+        slotEl.querySelector('[data-action="right"]')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          sound.playClick();
+          this.editor.swapSlots(slotIdx, slotIdx + 1);
+          this.renderEditorThumbnailsAndSlots();
+          this.updateEditorPreviewStyles();
+        });
+
+        slotEl.querySelector('[data-action="edit"]')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          sound.playClick();
+          this.setInspectedPhoto(photoIdx);
+        });
+
+        slotEl.querySelector('[data-action="remove"]')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          sound.playClick();
+          this.editor.togglePhotoSelection(photoIdx);
+          this.renderEditorThumbnailsAndSlots();
+          this.updateEditorPreviewStyles();
+        });
+      } else {
+        slotEl.innerHTML = `
+          <div class="live-slot-empty">
+            <span>➕ #${slotIdx + 1}</span>
+            <p>사진 선택</p>
+          </div>
+        `;
+
+        slotEl.addEventListener('click', () => {
+          sound.playClick();
+          if (this.currentInspectedIndex !== undefined) {
+            const alreadyAssigned = this.editor.selectedIndices.indexOf(this.currentInspectedIndex);
+            if (alreadyAssigned === -1) {
+              this.editor.selectedIndices[slotIdx] = this.currentInspectedIndex;
+              this.renderEditorThumbnailsAndSlots();
+              this.updateEditorPreviewStyles();
+            }
+          }
+        });
+      }
+
+      this.liveFrameSlotsLayer.appendChild(slotEl);
     });
   }
 
@@ -660,6 +786,9 @@ class App {
   }
 
   renderEditorThumbnailsAndSlots() {
+    // 0. 실시간 프레임 목업 동기화
+    this.renderLiveFrameMockup();
+
     // 1. 촬영된 6장 썸네일 풀 (Selection Pool)
     this.editorThumbnails.innerHTML = '';
     this.editor.rawShots.forEach((shotSrc, idx) => {
