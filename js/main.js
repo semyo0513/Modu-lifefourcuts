@@ -443,7 +443,7 @@ class App {
     }
   }
 
-  // 1. 프레임 로드
+  // 1. 프레임 로드 및 데이터 정규화
   async loadFrames() {
     let localFrames = [];
     try {
@@ -462,9 +462,48 @@ class App {
       }
     }
 
-    this.frames = [...localFrames, ...customFrames];
-    if (this.frames.length > 0 && !this.selectedFrame) {
-      this.selectedFrame = this.frames[0];
+    const allFrames = [...localFrames, ...customFrames].map(f => {
+      // slots가 문자열이면 파싱
+      if (typeof f.slots === 'string') {
+        try { f.slots = JSON.parse(f.slots); } catch (e) { f.slots = null; }
+      }
+      // canvas가 문자열이면 파싱
+      if (typeof f.canvas === 'string') {
+        try { f.canvas = JSON.parse(f.canvas); } catch (e) { f.canvas = null; }
+      }
+      if (!f.canvas || typeof f.canvas !== 'object') {
+        f.canvas = f.aspectRatio === '3:4' ? { width: 1200, height: 1600 } : { width: 600, height: 1800 };
+      }
+      if (!Array.isArray(f.slots) || f.slots.length === 0) {
+        if (f.aspectRatio === '3:4') {
+          f.slots = [
+            { x: 50, y: 50, w: 530, h: 680 },
+            { x: 620, y: 50, w: 530, h: 680 },
+            { x: 50, y: 770, w: 530, h: 680 },
+            { x: 620, y: 770, w: 530, h: 680 }
+          ];
+        } else {
+          f.slots = [
+            { x: 40, y: 40, w: 520, h: 380 },
+            { x: 40, y: 460, w: 520, h: 380 },
+            { x: 40, y: 880, w: 520, h: 380 },
+            { x: 40, y: 1300, w: 520, h: 380 }
+          ];
+        }
+      }
+      if (!f.slotCount) {
+        f.slotCount = f.slots.length;
+      }
+      return f;
+    });
+
+    this.frames = allFrames;
+    if (this.frames.length > 0) {
+      if (!this.selectedFrame || !this.frames.some(f => f.id === this.selectedFrame.id)) {
+        this.selectedFrame = this.frames[0];
+      } else {
+        this.selectedFrame = this.frames.find(f => f.id === this.selectedFrame.id);
+      }
     }
   }
 
@@ -645,21 +684,48 @@ class App {
   renderLiveFrameMockup() {
     if (!this.liveFrameMockup || !this.selectedFrame) return;
 
-    if (this.editorFrameBadge) {
-      this.editorFrameBadge.textContent = `🖼️ ${this.selectedFrame.name}`;
+    // 프레임 데이터 정규화 안전 처리
+    const f = this.selectedFrame;
+    if (typeof f.slots === 'string') {
+      try { f.slots = JSON.parse(f.slots); } catch (e) { f.slots = null; }
+    }
+    if (typeof f.canvas === 'string') {
+      try { f.canvas = JSON.parse(f.canvas); } catch (e) { f.canvas = null; }
     }
 
-    const canvas = this.selectedFrame.canvas || { width: 600, height: 1800 };
+    const canvas = f.canvas || (f.aspectRatio === '3:4' ? { width: 1200, height: 1600 } : { width: 600, height: 1800 });
+    const slots = (Array.isArray(f.slots) && f.slots.length > 0) ? f.slots : (
+      f.aspectRatio === '3:4' ? [
+        { x: 50, y: 50, w: 530, h: 680 },
+        { x: 620, y: 50, w: 530, h: 680 },
+        { x: 50, y: 770, w: 530, h: 680 },
+        { x: 620, y: 770, w: 530, h: 680 }
+      ] : [
+        { x: 40, y: 40, w: 520, h: 380 },
+        { x: 40, y: 460, w: 520, h: 380 },
+        { x: 40, y: 880, w: 520, h: 380 },
+        { x: 40, y: 1300, w: 520, h: 380 }
+      ]
+    );
+
+    if (this.editorFrameBadge) {
+      this.editorFrameBadge.textContent = `🖼️ ${f.name || '프레임'}`;
+    }
+
     this.liveFrameMockup.style.aspectRatio = `${canvas.width} / ${canvas.height}`;
 
     if (this.liveFrameOverlayImg) {
-      this.liveFrameOverlayImg.src = this.selectedFrame.file || '';
+      if (f.file) {
+        this.liveFrameOverlayImg.src = f.file;
+        this.liveFrameOverlayImg.style.display = 'block';
+      } else {
+        this.liveFrameOverlayImg.style.display = 'none';
+      }
     }
 
     if (!this.liveFrameSlotsLayer) return;
     this.liveFrameSlotsLayer.innerHTML = '';
 
-    const slots = this.selectedFrame.slots || [];
     slots.forEach((slot, slotIdx) => {
       const leftPct = (slot.x / canvas.width) * 100;
       const topPct = (slot.y / canvas.height) * 100;
@@ -667,7 +733,7 @@ class App {
       const heightPct = (slot.h / canvas.height) * 100;
 
       const photoIdx = this.editor.selectedIndices[slotIdx];
-      const hasPhoto = photoIdx !== undefined;
+      const hasPhoto = photoIdx !== undefined && this.editor.rawShots && this.editor.rawShots[photoIdx];
       const isInspected = hasPhoto && photoIdx === this.currentInspectedIndex;
 
       const slotEl = document.createElement('div');
@@ -741,9 +807,11 @@ class App {
             const alreadyAssigned = this.editor.selectedIndices.indexOf(this.currentInspectedIndex);
             if (alreadyAssigned === -1) {
               this.editor.selectedIndices[slotIdx] = this.currentInspectedIndex;
-              this.renderEditorThumbnailsAndSlots();
-              this.updateEditorPreviewStyles();
+            } else {
+              this.editor.swapSlots(alreadyAssigned, slotIdx);
             }
+            this.renderEditorThumbnailsAndSlots();
+            this.updateEditorPreviewStyles();
           }
         });
       }
