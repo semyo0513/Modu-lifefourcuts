@@ -1328,12 +1328,123 @@ input[type="range"] {
   padding: 8px;
 }
 
-.studio-preview-image {
+.studio-interactive-stage {
+  position: relative;
   max-height: 100%;
   max-width: 100%;
-  object-fit: contain;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
   border-radius: 4px;
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
+}
+
+.studio-preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+}
+
+.studio-drag-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.studio-drag-handle {
+  position: absolute;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed transparent;
+  transition: border-color 0.15s ease;
+  z-index: 12;
+}
+
+.studio-drag-handle:active {
+  cursor: grabbing;
+}
+
+.studio-drag-handle:hover {
+  border-color: rgba(255, 94, 142, 0.7);
+}
+
+.studio-drag-handle.selected {
+  border: 2px solid #ff5e8e;
+  box-shadow: 0 0 12px rgba(255, 94, 142, 0.85);
+  background: rgba(255, 94, 142, 0.08);
+  border-radius: 4px;
+  z-index: 20;
+}
+
+.drag-handle-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drag-thumb-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.drag-item-tag {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  font-size: 0.65rem;
+  background: rgba(0, 0, 0, 0.65);
+  border-radius: 2px;
+  padding: 1px 2px;
+  pointer-events: none;
+  display: none;
+}
+
+.studio-drag-handle.selected .drag-item-tag {
+  display: block;
+}
+
+.btn-quick-del-handle {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  font-size: 0.8rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 25;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+.btn-quick-del-handle:hover {
+  transform: scale(1.15);
+  background: #dc2626;
 }
 
 .studio-action-row {

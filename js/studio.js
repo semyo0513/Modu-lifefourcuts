@@ -1,7 +1,7 @@
 /**
  * studio.js - 원클릭 프레임 제작기 (Frame Studio)
- * 브라우저 캔버스를 활용하여 투명 슬롯이 뚫린 고해상도 네컷 프레임 PNG를 즉석 생성하고
- * 구글 드라이브 업로드 및 로컬 PNG 다운로드를 원클릭으로 지원합니다.
+ * 브라우저 캔버스를 활용하여 투명 슬롯이 뚫린 고해상도 네컷 프레임 PNG를 즉석 생성하고,
+ * 사용자 이미지/로고 업로드 및 자유 드래그 배치, 구글 드라이브 연동, PNG 저장을 지원합니다.
  */
 
 import { gasManager } from './gas.js';
@@ -47,9 +47,11 @@ export class FrameStudio {
       name: '나만의 네컷 프레임',
       description: '프레임 스튜디오에서 제작한 커스텀 프레임',
       presetType: 'strip_4', // strip_4 or grid_4
-      bgType: 'color', // color or gradient
+      bgType: 'color', // color, gradient, or image
       bgColor: '#ff7597',
       gradientIndex: 0,
+      bgImage: null, // Custom full background image (HTMLImageElement)
+      bgImageDataUrl: null,
       slotRadius: 10,
       slotBorderWidth: 0,
       slotBorderColor: '#ffffff',
@@ -58,27 +60,40 @@ export class FrameStudio {
       textColor: '#ffffff',
       fontStyle: 'sans-serif',
       showDate: true,
-      stickers: [
-        { emoji: '🎀', xRatio: 0.5, yRatio: 0.025, sizeRatio: 0.06 },
-        { emoji: '💖', xRatio: 0.86, yRatio: 0.94, sizeRatio: 0.05 },
-        { emoji: '✨', xRatio: 0.14, yRatio: 0.94, sizeRatio: 0.05 }
+      layers: [
+        { id: 'stk_1', type: 'emoji', emoji: '🎀', x: 0.5, y: 0.025, sizeRatio: 0.06, rotation: 0 },
+        { id: 'stk_2', type: 'emoji', emoji: '💖', x: 0.86, y: 0.94, sizeRatio: 0.05, rotation: 0 },
+        { id: 'stk_3', type: 'emoji', emoji: '✨', x: 0.14, y: 0.94, sizeRatio: 0.05, rotation: 0 }
       ],
+      selectedLayerId: null,
       showSamplePhotos: true
     };
 
-    // 샘플 사진 캐시
     this.samplePhotoColors = ['#e2e8f0', '#cbd5e1', '#94a3b8', '#64748b'];
+
+    // 드래그 인터랙션 상태
+    this.dragState = {
+      isDragging: false,
+      layerId: null,
+      startX: 0,
+      startY: 0,
+      initialLayerX: 0,
+      initialLayerY: 0
+    };
   }
 
   // 모달 엘리먼트 바인딩 및 이벤트 등록
   init() {
     this.modal = document.getElementById('frame-studio-modal');
     this.previewImg = document.getElementById('studio-preview-img');
+    this.interactiveStage = document.getElementById('studio-interactive-stage');
+    this.dragOverlay = document.getElementById('studio-drag-overlay');
     this.statusMsg = document.getElementById('studio-status-msg');
 
     if (!this.modal) return;
 
     this.bindControls();
+    this.bindDragEvents();
     this.renderPreview();
   }
 
@@ -87,7 +102,6 @@ export class FrameStudio {
     const nameInput = document.getElementById('studio-input-name');
     nameInput?.addEventListener('input', (e) => {
       this.state.name = e.target.value.trim() || '나만의 네컷 프레임';
-      this.renderPreview();
     });
 
     // 2. 규격 선택 (4컷 스트립 / 2x2 그리드)
@@ -203,7 +217,57 @@ export class FrameStudio {
       this.renderPreview();
     });
 
-    // 7. 스티커 팔레트 렌더링
+    // 7. 내 이미지 / 스티커 파일 업로드
+    const imageUploadInput = document.getElementById('studio-image-upload-input');
+    document.getElementById('btn-studio-upload-image')?.addEventListener('click', () => {
+      imageUploadInput.click();
+    });
+
+    imageUploadInput?.addEventListener('change', async (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        for (let file of e.target.files) {
+          await this.addUploadedImageLayer(file);
+        }
+        imageUploadInput.value = '';
+      }
+    });
+
+    // 전체 배경 이미지 업로드
+    const bgUploadInput = document.getElementById('studio-bg-upload-input');
+    document.getElementById('btn-studio-upload-bg')?.addEventListener('click', () => {
+      bgUploadInput.click();
+    });
+
+    bgUploadInput?.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const img = new Image();
+          img.onload = () => {
+            this.state.bgType = 'image';
+            this.state.bgImage = img;
+            this.state.bgImageDataUrl = evt.target.result;
+            document.getElementById('studio-bg-img-badge').style.display = 'inline-flex';
+            this.renderPreview();
+          };
+          img.src = evt.target.result;
+        };
+        reader.readAsDataURL(file);
+        bgUploadInput.value = '';
+      }
+    });
+
+    // 배경 이미지 제거 버튼
+    document.getElementById('btn-remove-custom-bg')?.addEventListener('click', () => {
+      this.state.bgType = 'color';
+      this.state.bgImage = null;
+      this.state.bgImageDataUrl = null;
+      document.getElementById('studio-bg-img-badge').style.display = 'none';
+      this.renderPreview();
+    });
+
+    // 8. 스티커 팔레트 렌더링
     const stickerPaletteEl = document.getElementById('studio-sticker-palette');
     if (stickerPaletteEl) {
       stickerPaletteEl.innerHTML = '';
@@ -229,7 +293,7 @@ export class FrameStudio {
           btn.textContent = emoji;
           btn.addEventListener('click', () => {
             sound.playClick();
-            this.addSticker(emoji);
+            this.addEmojiLayer(emoji);
           });
           catGroup.appendChild(btn);
         });
@@ -241,9 +305,54 @@ export class FrameStudio {
     // 스티커 모두 지우기
     document.getElementById('btn-clear-stickers')?.addEventListener('click', () => {
       sound.playClick();
-      this.state.stickers = [];
-      this.renderStickerList();
+      this.state.layers = [];
+      this.state.selectedLayerId = null;
+      this.updateLayerControlsUI();
       this.renderPreview();
+    });
+
+    // 9. 선택된 레이어 조작 컨트롤 (크기, 회전, 삭제)
+    const layerSizeSlider = document.getElementById('studio-layer-size');
+    layerSizeSlider?.addEventListener('input', (e) => {
+      const selected = this.getSelectedLayer();
+      if (selected) {
+        const factor = Number(e.target.value) / 100;
+        if (selected.type === 'image') {
+          const aspect = selected.aspect || 1;
+          selected.widthRatio = Math.max(0.05, 0.25 * factor);
+          selected.heightRatio = selected.widthRatio * aspect * (this.state.presetType === 'strip_4' ? (600 / 1800) : (1200 / 1600));
+        } else {
+          selected.sizeRatio = Math.max(0.02, 0.06 * factor);
+        }
+        document.getElementById('val-studio-layer-size').textContent = `${e.target.value}%`;
+        this.renderPreview();
+      }
+    });
+
+    const layerRotateSlider = document.getElementById('studio-layer-rotate');
+    layerRotateSlider?.addEventListener('input', (e) => {
+      const selected = this.getSelectedLayer();
+      if (selected) {
+        selected.rotation = Number(e.target.value);
+        document.getElementById('val-studio-layer-rotate').textContent = `${selected.rotation}°`;
+        this.renderPreview();
+      }
+    });
+
+    document.getElementById('btn-delete-selected-layer')?.addEventListener('click', () => {
+      if (this.state.selectedLayerId) {
+        sound.playClick();
+        this.removeLayer(this.state.selectedLayerId);
+      }
+    });
+
+    document.getElementById('btn-layer-bring-front')?.addEventListener('click', () => {
+      const idx = this.state.layers.findIndex(l => l.id === this.state.selectedLayerId);
+      if (idx > -1) {
+        const item = this.state.layers.splice(idx, 1)[0];
+        this.state.layers.push(item);
+        this.renderPreview();
+      }
     });
 
     // 샘플 사진 토글
@@ -253,7 +362,7 @@ export class FrameStudio {
       this.renderPreview();
     });
 
-    // 8. 저장 버튼 액션
+    // 10. 저장 버튼 액션
     document.getElementById('btn-studio-save-cloud')?.addEventListener('click', () => {
       this.saveToGoogleDrive();
     });
@@ -261,55 +370,143 @@ export class FrameStudio {
     document.getElementById('btn-studio-download-png')?.addEventListener('click', () => {
       this.downloadPng();
     });
-
-    this.renderStickerList();
   }
 
-  // 스티커 추가
-  addSticker(emoji) {
-    const positions = [
-      { xRatio: 0.5, yRatio: 0.025, sizeRatio: 0.06 },
-      { xRatio: 0.86, yRatio: 0.94, sizeRatio: 0.05 },
-      { xRatio: 0.14, yRatio: 0.94, sizeRatio: 0.05 },
-      { xRatio: 0.08, yRatio: 0.25, sizeRatio: 0.045 },
-      { xRatio: 0.92, yRatio: 0.48, sizeRatio: 0.045 },
-      { xRatio: 0.08, yRatio: 0.72, sizeRatio: 0.045 },
-    ];
-    const pos = positions[this.state.stickers.length % positions.length];
+  // 드래그 인터랙션 이벤트 바인딩 (마우스 & 터치 지원)
+  bindDragEvents() {
+    if (!this.interactiveStage) return;
 
-    this.state.stickers.push({
-      emoji: emoji,
-      xRatio: pos.xRatio,
-      yRatio: pos.yRatio,
-      sizeRatio: pos.sizeRatio
+    const onPointerMove = (e) => {
+      if (!this.dragState.isDragging || !this.dragState.layerId) return;
+      e.preventDefault();
+
+      const rect = this.interactiveStage.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+
+      const currentX = e.clientX;
+      const currentY = e.clientY;
+
+      const deltaXRatio = (currentX - this.dragState.startX) / rect.width;
+      const deltaYRatio = (currentY - this.dragState.startY) / rect.height;
+
+      const layer = this.state.layers.find(l => l.id === this.dragState.layerId);
+      if (layer) {
+        layer.x = Math.max(0.02, Math.min(0.98, this.dragState.initialLayerX + deltaXRatio));
+        layer.y = Math.max(0.02, Math.min(0.98, this.dragState.initialLayerY + deltaYRatio));
+        this.renderPreview();
+      }
+    };
+
+    const onPointerUp = () => {
+      if (this.dragState.isDragging) {
+        this.dragState.isDragging = false;
+        this.dragState.layerId = null;
+      }
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+  }
+
+  // 사용자 업로드 이미지 레이어 추가
+  async addUploadedImageLayer(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const img = new Image();
+        img.onload = () => {
+          const aspect = img.height / img.width;
+          const meta = this.getLayoutMeta();
+          const canvasAspect = meta.canvas.width / meta.canvas.height;
+
+          const widthRatio = 0.28;
+          const heightRatio = widthRatio * aspect * canvasAspect;
+
+          const newLayer = {
+            id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+            type: 'image',
+            name: file.name,
+            src: evt.target.result,
+            img: img,
+            aspect: aspect,
+            x: 0.5,
+            y: 0.85,
+            widthRatio: widthRatio,
+            heightRatio: heightRatio,
+            rotation: 0
+          };
+
+          this.state.layers.push(newLayer);
+          this.selectLayer(newLayer.id);
+          this.renderPreview();
+          resolve();
+        };
+        img.src = evt.target.result;
+      };
+      reader.readAsDataURL(file);
     });
+  }
 
-    this.renderStickerList();
+  // 이모지 레이어 추가
+  addEmojiLayer(emoji) {
+    const newLayer = {
+      id: 'emoji_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      type: 'emoji',
+      emoji: emoji,
+      x: 0.5,
+      y: 0.88,
+      sizeRatio: 0.06,
+      rotation: 0
+    };
+
+    this.state.layers.push(newLayer);
+    this.selectLayer(newLayer.id);
     this.renderPreview();
   }
 
-  // 스티커 목록 태그 UI 렌더링
-  renderStickerList() {
-    const listEl = document.getElementById('studio-active-stickers');
-    if (!listEl) return;
-    listEl.innerHTML = '';
+  // 레이어 선택
+  selectLayer(layerId) {
+    this.state.selectedLayerId = layerId;
+    this.updateLayerControlsUI();
+    this.renderOverlayHandles();
+  }
 
-    if (this.state.stickers.length === 0) {
-      listEl.innerHTML = '<span style="font-size:0.75rem; color:var(--text-muted);">적용된 스티커가 없습니다.</span>';
-      return;
+  // 레이어 삭제
+  removeLayer(layerId) {
+    this.state.layers = this.state.layers.filter(l => l.id !== layerId);
+    if (this.state.selectedLayerId === layerId) {
+      this.state.selectedLayerId = null;
     }
+    this.updateLayerControlsUI();
+    this.renderPreview();
+  }
 
-    this.state.stickers.forEach((st, idx) => {
-      const chip = document.createElement('span');
-      chip.className = 'studio-sticker-chip';
-      chip.innerHTML = `${st.emoji} <button type="button" class="btn-remove-sticker">&times;</button>`;
-      chip.querySelector('.btn-remove-sticker').addEventListener('click', () => {
-        this.state.stickers.splice(idx, 1);
-        this.renderStickerList();
-        this.renderPreview();
-      });
-      listEl.appendChild(chip);
-    });
+  getSelectedLayer() {
+    return this.state.layers.find(l => l.id === this.state.selectedLayerId);
+  }
+
+  // 선택된 레이어 조작 도구(슬라이더 등) 활성화/비활성화 UI 동기화
+  updateLayerControlsUI() {
+    const controlsWrap = document.getElementById('studio-selected-layer-controls');
+    const selected = this.getSelectedLayer();
+
+    if (!controlsWrap) return;
+
+    if (selected) {
+      controlsWrap.style.display = 'block';
+      const nameBadge = document.getElementById('studio-selected-layer-name');
+      if (nameBadge) {
+        nameBadge.textContent = selected.type === 'image' ? `🖼️ ${selected.name || '이미지 요소'}` : `✨ 스티커 [ ${selected.emoji} ]`;
+      }
+      const rotSlider = document.getElementById('studio-layer-rotate');
+      if (rotSlider) {
+        rotSlider.value = selected.rotation || 0;
+        document.getElementById('val-studio-layer-rotate').textContent = `${selected.rotation || 0}°`;
+      }
+    } else {
+      controlsWrap.style.display = 'none';
+    }
   }
 
   // 프레임 규격 및 슬롯 메타데이터 가져오기
@@ -342,7 +539,7 @@ export class FrameStudio {
     };
   }
 
-  // 캔버스에 프레임 렌더링 (투명 슬롯 뚫기 및 디자인 합성)
+  // 캔버스에 프레임 렌더링 (투명 슬롯 뚫기 및 사용자 이미지/스티커 합성)
   renderFrameCanvas(includeSamplePhotos = false) {
     const meta = this.getLayoutMeta();
     const width = meta.canvas.width;
@@ -354,24 +551,27 @@ export class FrameStudio {
 
     ctx.clearRect(0, 0, width, height);
 
-    // 1. 배경 채우기
-    if (this.state.bgType === 'gradient') {
+    // 1. 배경 렌더링 (전체 배경 이미지 or 그라데이션 or 단색)
+    if (this.state.bgType === 'image' && this.state.bgImage) {
+      ctx.drawImage(this.state.bgImage, 0, 0, width, height);
+    } else if (this.state.bgType === 'gradient') {
       const gradPreset = GRADIENT_PRESETS[this.state.gradientIndex] || GRADIENT_PRESETS[0];
       const grad = ctx.createLinearGradient(0, 0, width, height);
       grad.addColorStop(0, gradPreset.colors[0]);
       grad.addColorStop(1, gradPreset.colors[1]);
       ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
     } else {
       ctx.fillStyle = this.state.bgColor;
+      ctx.fillRect(0, 0, width, height);
     }
-    ctx.fillRect(0, 0, width, height);
 
     // 2. 슬롯 투명 구멍 뚫기 (또는 샘플 사진 렌더링)
     meta.slots.forEach((slot, sIdx) => {
-      const r = this.state.slotRadius * (width / 600); // 캔버스 배율 반영
+      const r = this.state.slotRadius * (width / 600);
 
       if (includeSamplePhotos) {
-        // 샘플 사진 모드: 사진 일러스트/그라데이션 채우기
+        // 샘플 사진 모드: 일러스트/그라데이션 채우기
         ctx.save();
         ctx.beginPath();
         ctx.roundRect(slot.x, slot.y, slot.w, slot.h, [r, r, r, r]);
@@ -379,7 +579,6 @@ export class FrameStudio {
         ctx.fillStyle = this.samplePhotoColors[sIdx % this.samplePhotoColors.length];
         ctx.fillRect(slot.x, slot.y, slot.w, slot.h);
 
-        // 사진 번호 표시
         ctx.fillStyle = '#475569';
         ctx.font = `bold ${Math.round(42 * (width / 600))}px "Noto Sans KR", sans-serif`;
         ctx.textAlign = 'center';
@@ -387,7 +586,7 @@ export class FrameStudio {
         ctx.fillText(`📸 컷 #${sIdx + 1}`, slot.x + slot.w / 2, slot.y + slot.h / 2);
         ctx.restore();
       } else {
-        // 투명 프레임 모드: destination-out으로 슬롯 영역을 완벽하게 투명(Alpha 0%)하게 뚫음
+        // 투명 프레임 모드: destination-out으로 완벽한 Alpha 0% 투명 구멍 뚫기
         ctx.save();
         ctx.globalCompositeOperation = 'destination-out';
         ctx.beginPath();
@@ -397,7 +596,7 @@ export class FrameStudio {
         ctx.restore();
       }
 
-      // 슬롯 테두리 그리기 (설정된 경우)
+      // 슬롯 테두리
       if (this.state.slotBorderWidth > 0) {
         ctx.save();
         ctx.beginPath();
@@ -418,7 +617,6 @@ export class FrameStudio {
     const scale = width / 600;
 
     if (this.state.presetType === 'strip_4') {
-      // 4컷 세로 스트립 하단 여백
       if (this.state.mainText) {
         ctx.font = `bold ${Math.round(24 * scale)}px "Noto Sans KR", sans-serif`;
         ctx.fillText(this.state.mainText, width / 2, height - 58 * scale);
@@ -429,7 +627,6 @@ export class FrameStudio {
         ctx.fillText(this.state.subText, width / 2, height - 28 * scale);
       }
     } else {
-      // 2x2 와이드 그리드 하단 여백
       if (this.state.mainText) {
         ctx.font = `bold ${Math.round(30 * scale)}px "Noto Sans KR", sans-serif`;
         ctx.fillText(this.state.mainText, width / 2, height - 65 * scale);
@@ -442,17 +639,30 @@ export class FrameStudio {
     }
     ctx.restore();
 
-    // 4. 스티커 및 이모지 장식 렌더링
-    if (Array.isArray(this.state.stickers)) {
-      this.state.stickers.forEach(st => {
+    // 4. 사용자 업로드 이미지 및 스티커 레이어 렌더링 (자유 드래그 배치 반영)
+    if (Array.isArray(this.state.layers)) {
+      this.state.layers.forEach(layer => {
         ctx.save();
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        const fontSize = Math.round(st.sizeRatio * height);
-        ctx.font = `${fontSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
-        const posX = st.xRatio * width;
-        const posY = st.yRatio * height;
-        ctx.fillText(st.emoji, posX, posY);
+        const posX = layer.x * width;
+        const posY = layer.y * height;
+        ctx.translate(posX, posY);
+
+        if (layer.rotation) {
+          ctx.rotate((layer.rotation * Math.PI) / 180);
+        }
+
+        if (layer.type === 'image' && layer.img) {
+          const lWidth = (layer.widthRatio || 0.25) * width;
+          const lHeight = (layer.heightRatio || 0.25) * height;
+          ctx.drawImage(layer.img, -lWidth / 2, -lHeight / 2, lWidth, lHeight);
+        } else if (layer.type === 'emoji') {
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          const fontSize = Math.round((layer.sizeRatio || 0.06) * height);
+          ctx.font = `${fontSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+          ctx.fillText(layer.emoji, 0, 0);
+        }
+
         ctx.restore();
       });
     }
@@ -460,16 +670,91 @@ export class FrameStudio {
     return this.canvas;
   }
 
-  // 모달 안의 미리보기 갱신
+  // 모달 안의 미리보기 및 드래그 핸들 갱신
   renderPreview() {
     if (!this.previewImg) return;
     const canvas = this.renderFrameCanvas(this.state.showSamplePhotos);
     this.previewImg.src = canvas.toDataURL('image/png');
+
+    const meta = this.getLayoutMeta();
+    if (this.interactiveStage) {
+      this.interactiveStage.style.aspectRatio = `${meta.canvas.width} / ${meta.canvas.height}`;
+    }
+
+    this.renderOverlayHandles();
+  }
+
+  // 드래그 가능한 인터랙티브 오버레이 핸들 렌더링
+  renderOverlayHandles() {
+    if (!this.dragOverlay) return;
+    this.dragOverlay.innerHTML = '';
+
+    const meta = this.getLayoutMeta();
+
+    this.state.layers.forEach(layer => {
+      const handle = document.createElement('div');
+      const isSelected = layer.id === this.state.selectedLayerId;
+      handle.className = `studio-drag-handle ${isSelected ? 'selected' : ''}`;
+      handle.dataset.layerId = layer.id;
+      handle.style.left = `${layer.x * 100}%`;
+      handle.style.top = `${layer.y * 100}%`;
+      handle.style.transform = `translate(-50%, -50%) rotate(${layer.rotation || 0}deg)`;
+
+      if (layer.type === 'image') {
+        const wPct = (layer.widthRatio || 0.25) * 100;
+        const hPct = (layer.heightRatio || 0.25) * 100;
+        handle.style.width = `${wPct}%`;
+        handle.style.height = `${hPct}%`;
+        handle.innerHTML = `
+          <div class="drag-handle-inner">
+            <img src="${layer.src}" class="drag-thumb-img" />
+            <div class="drag-item-tag">🖼️</div>
+            ${isSelected ? '<button type="button" class="btn-quick-del-handle" title="삭제">&times;</button>' : ''}
+          </div>
+        `;
+      } else {
+        const sizePct = (layer.sizeRatio || 0.06) * 100;
+        handle.style.width = `${sizePct * 1.5}%`;
+        handle.style.height = `${sizePct * 1.5}%`;
+        handle.innerHTML = `
+          <div class="drag-handle-inner emoji-inner">
+            <span style="font-size: 1.5rem; line-height: 1;">${layer.emoji}</span>
+            ${isSelected ? '<button type="button" class="btn-quick-del-handle" title="삭제">&times;</button>' : ''}
+          </div>
+        `;
+      }
+
+      // 드래그 시작 이벤트
+      handle.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.btn-quick-del-handle')) {
+          e.stopPropagation();
+          sound.playClick();
+          this.removeLayer(layer.id);
+          return;
+        }
+
+        e.stopPropagation();
+        this.selectLayer(layer.id);
+
+        this.dragState.isDragging = true;
+        this.dragState.layerId = layer.id;
+        this.dragState.startX = e.clientX;
+        this.dragState.startY = e.clientY;
+        this.dragState.initialLayerX = layer.x;
+        this.dragState.initialLayerY = layer.y;
+
+        try {
+          handle.setPointerCapture(e.pointerId);
+        } catch (err) {}
+      });
+
+      this.dragOverlay.appendChild(handle);
+    });
   }
 
   // 투명 프레임 PNG Data URL 추출 (투명 슬롯 뚫린 원본)
   getTransparentFrameDataUrl() {
-    const canvas = this.renderFrameCanvas(false); // 사진 없이 투명 슬롯 뚫기
+    const canvas = this.renderFrameCanvas(false);
     return canvas.toDataURL('image/png');
   }
 
@@ -532,7 +817,6 @@ export class FrameStudio {
         this.statusMsg.innerHTML = '<span style="color:#10b981; font-weight:700;">🎉 구글 드라이브 등록 완료! 프레임 선택 목록에 즉시 추가되었습니다.</span>';
       }
 
-      // 앱 프레임 목록 새로고침 및 방금 만든 프레임 자동 선택
       if (this.app) {
         await this.app.loadFrames();
         this.app.selectedFrame = newFrame;

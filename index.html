@@ -557,10 +557,33 @@
             </div>
           </div>
 
-          <!-- 2. 배경 색상 & 그라데이션 -->
+          <!-- 2. 내 이미지 / 로고 / 캐릭터 파일 업로드 (드래그 배치 지원) -->
+          <div class="studio-section">
+            <label class="studio-section-label">2. 🖼️ 내 이미지 / 로고 / 스티커 추가</label>
+            <p style="font-size: 0.73rem; color: var(--text-muted); margin: 0 0 6px 0;">
+              내 PC의 사진, 로고, 캐릭터 PNG를 업로드하여 프레임 위에 드래그로 자유롭게 배치하세요.
+            </p>
+            <input type="file" id="studio-image-upload-input" accept="image/*" multiple style="display: none;" />
+            <input type="file" id="studio-bg-upload-input" accept="image/*" style="display: none;" />
+
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button type="button" id="btn-studio-upload-image" class="btn-primary" style="flex: 1; padding: 8px; font-size: 0.78rem; background: var(--accent-gradient); border: none;">
+                <span>➕ 내 이미지/로고 추가</span>
+              </button>
+              <button type="button" id="btn-studio-upload-bg" class="btn-icon" style="flex: 1; padding: 8px; font-size: 0.78rem;">
+                <span>🎨 배경 이미지로 적용</span>
+              </button>
+            </div>
+            <div id="studio-bg-img-badge" style="display: none; align-items: center; justify-content: space-between; background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; border-radius: 4px; padding: 4px 8px; font-size: 0.75rem; color: #38bdf8; margin-top: 6px;">
+              <span>✅ 사용자 정의 배경 적용 중</span>
+              <button type="button" id="btn-remove-custom-bg" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:0.8rem;">삭제</button>
+            </div>
+          </div>
+
+          <!-- 3. 배경 색상 & 그라데이션 -->
           <div class="studio-section">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <label class="studio-section-label" style="margin-bottom: 0;">2. 배경 컬러 테마</label>
+              <label class="studio-section-label" style="margin-bottom: 0;">3. 배경 컬러 테마</label>
               <div style="display: flex; align-items: center; gap: 4px;">
                 <span style="font-size: 0.72rem; color: var(--text-muted);">직접 선택:</span>
                 <input type="color" id="studio-custom-color" value="#ff7597" style="width: 24px; height: 24px; border: none; border-radius: 4px; cursor: pointer; background: transparent;" />
@@ -575,9 +598,39 @@
             <div id="studio-gradient-swatches" class="studio-swatches-grid"></div>
           </div>
 
-          <!-- 3. 슬롯 라운딩 & 테두리 -->
+          <!-- 4. 선택된 스티커/이미지 레이어 정밀 조작 (크기/회전/삭제) -->
+          <div id="studio-selected-layer-controls" class="studio-section" style="display: none; border-color: var(--accent-pink); background: rgba(255, 94, 142, 0.08);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label class="studio-section-label" style="margin-bottom: 0; color: #ff5e8e;">🎯 선택된 요소 설정</label>
+              <span id="studio-selected-layer-name" style="font-size: 0.72rem; color: var(--text-muted);">요소</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <div>
+                <div class="slider-label">
+                  <span>크기 (Size)</span>
+                  <span id="val-studio-layer-size">100%</span>
+                </div>
+                <input type="range" id="studio-layer-size" min="30" max="300" value="100" />
+              </div>
+              <div>
+                <div class="slider-label">
+                  <span>회전 (Rotate)</span>
+                  <span id="val-studio-layer-rotate">0°</span>
+                </div>
+                <input type="range" id="studio-layer-rotate" min="-180" max="180" value="0" />
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 6px; margin-top: 6px;">
+              <button type="button" id="btn-layer-bring-front" class="btn-icon" style="flex: 1; padding: 4px 6px; font-size: 0.72rem;">맨 앞으로 🔼</button>
+              <button type="button" id="btn-delete-selected-layer" class="btn-icon" style="flex: 1; padding: 4px 6px; font-size: 0.72rem; color: #ef4444; border-color: #ef4444;">삭제 🗑️</button>
+            </div>
+          </div>
+
+          <!-- 5. 슬롯 라운딩 & 테두리 -->
           <div class="studio-section">
-            <label class="studio-section-label">3. 슬롯 모서리 & 테두리</label>
+            <label class="studio-section-label">5. 슬롯 모서리 & 테두리</label>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
               <div>
                 <div class="slider-label">
@@ -600,10 +653,10 @@
             </div>
           </div>
 
-          <!-- 4. 브랜딩 텍스트 문구 -->
+          <!-- 6. 브랜딩 텍스트 문구 -->
           <div class="studio-section">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <label class="studio-section-label" style="margin-bottom: 0;">4. 하단 문구 & 날짜</label>
+              <label class="studio-section-label" style="margin-bottom: 0;">6. 하단 문구 & 날짜</label>
               <div style="display: flex; align-items: center; gap: 4px;">
                 <span style="font-size: 0.72rem; color: var(--text-muted);">글씨색:</span>
                 <input type="color" id="studio-text-color" value="#ffffff" style="width: 22px; height: 22px; border: none; border-radius: 3px; cursor: pointer; background: transparent;" />
@@ -613,29 +666,34 @@
             <input type="text" id="studio-sub-text" class="form-input" value="2026.09.08 • HAPPY DAY" placeholder="서브 문구 또는 날짜" />
           </div>
 
-          <!-- 5. 스티커 & 데코레이션 -->
+          <!-- 7. 스티커 & 데코레이션 -->
           <div class="studio-section">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <label class="studio-section-label" style="margin-bottom: 0;">5. 스티커 & 이모지 데코</label>
-              <button type="button" id="btn-clear-stickers" class="btn-icon" style="padding: 2px 6px; font-size: 0.7rem;">비우기</button>
+              <label class="studio-section-label" style="margin-bottom: 0;">7. 스티커 & 이모지 데코 (클릭 추가 후 드래그)</label>
+              <button type="button" id="btn-clear-stickers" class="btn-icon" style="padding: 2px 6px; font-size: 0.7rem;">모두 비우기</button>
             </div>
             <div id="studio-sticker-palette"></div>
-            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">적용된 스티커 (클릭 시 삭제):</div>
-            <div id="studio-active-stickers" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;"></div>
           </div>
         </div>
 
-        <!-- 우측: 실시간 고해상도 프레임 미리보기 -->
+        <!-- 우측: 실시간 고해상도 프레임 미리보기 & 드래그 인터랙티브 스테이지 -->
         <div class="studio-preview-pane">
           <div class="studio-preview-header">
-            <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">실시간 렌더링 미리보기</span>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">실시간 렌더링 & 드래그</span>
+              <span style="font-size: 0.68rem; background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 1px 6px; border-radius: 4px;">🖐️ 직접 드래그 이동</span>
+            </div>
             <button type="button" id="btn-toggle-sample-photos" class="btn-icon" style="padding: 3px 8px; font-size: 0.72rem;">
               <span>🖼️ 샘플 사진 켜기/끄기</span>
             </button>
           </div>
 
           <div class="studio-canvas-container">
-            <img id="studio-preview-img" class="studio-preview-image" alt="Studio Frame Preview" />
+            <!-- 인터랙티브 드래그 스테이지 -->
+            <div id="studio-interactive-stage" class="studio-interactive-stage">
+              <img id="studio-preview-img" class="studio-preview-image" alt="Studio Frame Preview" />
+              <div id="studio-drag-overlay" class="studio-drag-overlay"></div>
+            </div>
           </div>
 
           <div id="studio-status-msg" style="text-align: center; font-size: 0.82rem; min-height: 20px;"></div>
