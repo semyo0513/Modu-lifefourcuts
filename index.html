@@ -86,6 +86,9 @@
           <button id="btn-open-frame-studio" class="btn-primary" style="background: var(--accent-gradient); border: none; box-shadow: 0 0 15px rgba(255, 94, 142, 0.4);">
             <span>✨</span> <span>나만의 프레임 직접 만들기</span>
           </button>
+          <button id="btn-sync-drive-frames" class="btn-icon" style="background: rgba(56, 189, 248, 0.15); border-color: #38bdf8; color: #38bdf8; font-weight: 600;" title="구글 드라이브 폴더의 모든 프레임을 강제로 스캔하여 불러옵니다.">
+            <span>🔄</span> <span>드라이브 프레임 불러오기</span>
+          </button>
           <button id="btn-frame-samples-link" class="btn-icon">
             <span>📥</span> <span>제작 템플릿 받기</span>
           </button>
@@ -411,7 +414,10 @@
       <!-- 관리자 모달 상단 퀵 버튼 -->
       <div style="display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
         <button id="btn-admin-open-studio" class="btn-primary" style="flex: 1.5; background: var(--accent-gradient); border: none; font-weight: 600; padding: 10px;">
-          <span>✨</span> <span>원클릭 프레임 제작기 열기</span>
+          <span>✨</span> <span>원클릭 프레임 제작기</span>
+        </button>
+        <button id="btn-admin-sync-drive" class="btn-icon" style="flex: 1.2; background: rgba(56, 189, 248, 0.15); border-color: #38bdf8; color: #38bdf8; font-weight: 600; padding: 10px;" title="구글 드라이브 폴더의 모든 PNG 파일을 스캔하여 등록">
+          <span>🔄</span> <span>드라이브 전체 동기화</span>
         </button>
         <button id="btn-open-google-sheet" class="btn-icon" style="flex: 1; background: rgba(16, 185, 129, 0.15); border-color: #10b981; color: #10b981; font-weight: 600; padding: 10px;">
           <span>📊</span> <span>기록 시트</span>

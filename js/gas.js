@@ -95,6 +95,30 @@ export class GasManager {
     return null;
   }
 
+  // 1-2. 구글 드라이브 폴더의 모든 프레임 강제 전체 동기화
+  async syncDriveFolder() {
+    if (!this.isConfigured()) {
+      throw new Error('Google Apps Script 웹 앱 URL이 설정되지 않았습니다. [설정⚙️]에서 먼저 URL을 등록해 주세요.');
+    }
+
+    const url = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}action=syncDriveFolder&t=${Date.now()}`;
+    const res = await fetch(url, { method: 'GET', cache: 'no-store' });
+    if (!res.ok) {
+      throw new Error(`서버 응답 오류: HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    if (data.status !== 'ok') {
+      throw new Error(data.message || '드라이브 동기화 실패');
+    }
+
+    if (Array.isArray(data.frames)) {
+      this.setCachedCustomFrames(data.frames);
+    }
+
+    return data;
+  }
+
   // 2. 새 프레임 PNG 업로드 (구글 드라이브에 저장)
   async uploadFrame({ name, description, imageBase64, slotPreset = 'strip_4', customSlots = null, adminPin = null }) {
     if (!this.isConfigured()) {

@@ -63,6 +63,8 @@ function doGet(e) {
       } else {
         result = { status: "error", message: "fileId가 필요합니다." };
       }
+    } else if (action === "syncDriveFolder" || action === "forceSync") {
+      result = handleSyncDriveFolder();
     } else if (action === "getAdminInfo") {
       try {
         var ss = getOrCreateSpreadsheet();
@@ -99,6 +101,8 @@ function doPost(e) {
 
     if (action === "uploadFrame") {
       result = handleUploadFrame(data);
+    } else if (action === "syncDriveFolder" || action === "forceSync") {
+      result = handleSyncDriveFolder();
     } else if (action === "sendEmail") {
       result = handleSendEmail(data);
     } else if (action === "deleteFrame") {
@@ -257,6 +261,109 @@ function handleSaveSettingsLog(data) {
   logSettingsToSheet(settingName, settingDetails);
 
   return { status: "ok", message: "설정 변경 내역이 시트에 성공적으로 기록되었습니다." };
+}
+
+/**
+ * 5. 구글 드라이브 폴더 내 모든 PNG 프레임을 강제로 스캔하여 동기화
+ */
+function handleSyncDriveFolder() {
+  try {
+    var folder = getOrCreateFolder(FOLDER_NAME);
+    var files = folder.getFiles();
+    var existingFrames = getStoredFramesMetadata();
+    var frameMap = {};
+    existingFrames.forEach(function(f) {
+      if (f.fileId) frameMap[f.fileId] = f;
+    });
+
+    var syncedFrames = [];
+    var addedCount = 0;
+
+    while (files.hasNext()) {
+      var file = files.next();
+      if (file.isTrashed()) continue;
+
+      var mime = file.getMimeType();
+      var filename = file.getName();
+      // PNG 파일 식별
+      if (mime === "image/png" || filename.toLowerCase().endsWith(".png")) {
+        var fileId = file.getId();
+        var frame = frameMap[fileId];
+
+        if (!frame) {
+          var cleanName = filename
+            .replace(/\.png$/i, "")
+            .replace(/^frame_\d+_/, "")
+            .replace(/_/g, " ");
+          if (!cleanName.trim()) cleanName = "드라이브 프레임 (" + fileId.substr(0, 4) + ")";
+
+          var isGrid = /grid|와이드|2x2|2_2/i.test(filename);
+          var aspectRatio = isGrid ? "3:4" : "1:3";
+          var canvas = isGrid ? { width: 1200, height: 1600 } : { width: 600, height: 1800 };
+          var slots = isGrid
+            ? [
+                { x: 50, y: 50, w: 530, h: 680 },
+                { x: 620, y: 50, w: 530, h: 680 },
+                { x: 50, y: 770, w: 530, h: 680 },
+                { x: 620, y: 770, w: 530, h: 680 }
+              ]
+            : [
+                { x: 40, y: 40, w: 520, h: 380 },
+                { x: 40, y: 460, w: 520, h: 380 },
+                { x: 40, y: 880, w: 520, h: 380 },
+                { x: 40, y: 1300, w: 520, h: 380 }
+              ];
+
+          frame = {
+            id: "custom_" + fileId,
+            fileId: fileId,
+            name: cleanName,
+            description: "구글 드라이브 동기화 프레임",
+            file: "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w2000",
+            canvas: canvas,
+            aspectRatio: aspectRatio,
+            slotCount: slots.length,
+            themeColor: "#ff5e8e",
+            slots: slots,
+            createdAt: file.getDateCreated().toISOString(),
+            isCustom: true
+          };
+          addedCount++;
+          logFrameToSheet(frame, "드라이브 폴더 동기화");
+        }
+
+        // Base64 추출
+        try {
+          var b64 = Utilities.base64Encode(file.getBlob().getBytes());
+          var frameWithB64 = Object.assign({}, frame);
+          frameWithB64.file = "data:image/png;base64," + b64;
+          syncedFrames.push(frameWithB64);
+        } catch (err) {
+          syncedFrames.push(frame);
+        }
+      }
+    }
+
+    // 메타데이터 최신화 저장
+    var metadataToSave = syncedFrames.map(function(f) {
+      var copy = Object.assign({}, f);
+      if (copy.file && copy.file.startsWith("data:")) {
+        copy.file = "https://drive.google.com/thumbnail?id=" + copy.fileId + "&sz=w2000";
+      }
+      return copy;
+    });
+    saveStoredFramesMetadata(metadataToSave);
+
+    return {
+      status: "ok",
+      message: "구글 드라이브 폴더에서 " + syncedFrames.length + "개의 프레임을 성공적으로 동기화했습니다.",
+      count: syncedFrames.length,
+      addedCount: addedCount,
+      frames: syncedFrames
+    };
+  } catch (err) {
+    return { status: "error", message: "드라이브 동기화 실패: " + err.toString() };
+  }
 }
 
 /* ==========================================================================

@@ -389,6 +389,16 @@ class App {
       await this.openGoogleSheet();
     });
 
+    // 구글 드라이브 폴더 전체 프레임 동기화 버튼
+    document.getElementById('btn-sync-drive-frames')?.addEventListener('click', async (e) => {
+      sound.playClick();
+      await this.forceSyncDriveFrames(e.currentTarget);
+    });
+    document.getElementById('btn-admin-sync-drive')?.addEventListener('click', async (e) => {
+      sound.playClick();
+      await this.forceSyncDriveFrames(e.currentTarget);
+    });
+
     // Settings save & test connection
     document.getElementById('btn-test-gas-conn')?.addEventListener('click', async () => {
       sound.playClick();
@@ -1225,6 +1235,40 @@ class App {
     alert('설정이 성공적으로 저장되었으며 시트에 기록되었습니다!');
     this.closeAllModals();
     this.loadFrames();
+  }
+
+  // 🔄 구글 드라이브 폴더의 모든 PNG 프레임 강제 동기화
+  async forceSyncDriveFrames(btnEl = null) {
+    if (!gasManager.isConfigured()) {
+      alert('Google Apps Script 웹 앱 URL이 설정되지 않았습니다.\n먼저 상단 [설정 ⚙️]에서 URL을 등록해 주세요.');
+      this.openSettingsModal();
+      return;
+    }
+
+    const originalHtml = btnEl ? btnEl.innerHTML : '';
+    if (btnEl) {
+      btnEl.disabled = true;
+      btnEl.innerHTML = '<span>⏳</span> <span>드라이브 스캔 중...</span>';
+    }
+
+    try {
+      const res = await gasManager.syncDriveFolder();
+      await this.loadFrames();
+      this.renderFrameGallery();
+      await this.renderAdminCustomFramesList();
+
+      const count = (res && res.count) || (res && res.frames && res.frames.length) || 0;
+      const added = (res && res.addedCount) || 0;
+      alert(`🎉 구글 드라이브 폴더에서 총 ${count}개의 프레임을 성공적으로 불러왔습니다!\n(새로 발견되어 추가된 프레임: ${added}개)`);
+    } catch (err) {
+      console.error('Force sync error:', err);
+      alert(`⚠️ 드라이브 동기화 중 오류가 발생했습니다: ${err.message || '네트워크 상태를 확인해 주세요.'}`);
+    } finally {
+      if (btnEl) {
+        btnEl.disabled = false;
+        btnEl.innerHTML = originalHtml;
+      }
+    }
   }
 
   // 관리자 모달
