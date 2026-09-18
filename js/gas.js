@@ -27,21 +27,51 @@ export class GasManager {
     return Boolean(this.gasUrl && this.gasUrl.startsWith('https://script.google.com'));
   }
 
-  // 1. 구글 드라이브에 저장된 사용자 정의 프레임 목록 가져오기
-  async fetchCustomFrames() {
-    if (!this.isConfigured()) return [];
+  // 로컬 스토리지에 캐시된 커스텀 프레임 가져오기 (0초 즉시 로딩)
+  getCachedCustomFrames() {
+    try {
+      const raw = localStorage.getItem('life4cut_custom_frames_cache');
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // 커스텀 프레임 캐시 저장
+  setCachedCustomFrames(frames) {
+    try {
+      if (Array.isArray(frames)) {
+        localStorage.setItem('life4cut_custom_frames_cache', JSON.stringify(frames));
+      }
+    } catch (e) {
+      console.warn('Failed to cache custom frames:', e);
+    }
+  }
+
+  // 1. 구글 드라이브에 저장된 사용자 정의 프레임 목록 가져오기 (SWR + 초고속 타임아웃)
+  async fetchCustomFrames({ timeoutMs = 4000 } = {}) {
+    if (!this.isConfigured()) {
+      return this.getCachedCustomFrames();
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       const url = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}action=getFrames&t=${Date.now()}`;
-      const res = await fetch(url, { method: 'GET' });
+      const res = await fetch(url, { method: 'GET', signal: controller.signal });
+      clearTimeout(timeoutId);
       const data = await res.json();
       if (data && data.status === 'ok' && Array.isArray(data.frames)) {
+        this.setCachedCustomFrames(data.frames);
         return data.frames;
       }
     } catch (err) {
-      console.warn('GAS fetchCustomFrames error:', err);
+      clearTimeout(timeoutId);
+      console.warn('GAS fetchCustomFrames error/timeout -> fallback to cache:', err);
     }
-    return [];
+
+    return this.getCachedCustomFrames();
   }
 
   // 1-1. 특정 프레임의 Base64 Data URL 조회 (CORS 방지용 개별 조회)

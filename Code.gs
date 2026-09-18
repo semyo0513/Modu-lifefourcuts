@@ -34,7 +34,22 @@ function doGet(e) {
     if (action === "ping") {
       result = { status: "ok", message: "모두의 네컷 사진 GAS 서버가 정상 작동 중입니다." };
     } else if (action === "getFrames") {
-      result = { status: "ok", frames: getStoredFramesWithBase64() };
+      var cache = CacheService.getScriptCache();
+      var cachedFramesJson = cache.get("CUSTOM_FRAMES_CACHE");
+      if (cachedFramesJson) {
+        return ContentService.createTextOutput(cachedFramesJson)
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var frames = getStoredFramesWithBase64();
+      var responseObj = { status: "ok", frames: frames };
+      var responseStr = JSON.stringify(responseObj);
+      try {
+        cache.put("CUSTOM_FRAMES_CACHE", responseStr, 21600); // 6시간 캐싱
+      } catch (e) {
+        Logger.log("Cache put failed: " + e);
+      }
+      return ContentService.createTextOutput(responseStr)
+        .setMimeType(ContentService.MimeType.JSON);
     } else if (action === "getFrameBase64") {
       var fileId = params.fileId;
       if (fileId) {
@@ -405,6 +420,9 @@ function getStoredFramesMetadata() {
 function saveStoredFramesMetadata(frames) {
   var props = PropertiesService.getScriptProperties();
   props.setProperty("CUSTOM_FRAMES", JSON.stringify(frames));
+  try {
+    CacheService.getScriptCache().remove("CUSTOM_FRAMES_CACHE");
+  } catch (e) {}
 }
 
 function getAdminPin() {

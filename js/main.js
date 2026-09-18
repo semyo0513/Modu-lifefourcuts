@@ -11,6 +11,73 @@ import { emailSender } from './email.js';
 import { gasManager } from './gas.js';
 import { FrameStudio } from './studio.js';
 
+export const BUILTIN_FRAMES = [
+  {
+    id: "frame_pink",
+    name: "러블리 핑크 (Lovely Pink)",
+    description: "화사하고 사랑스러운 파스텔 핑크 테마 4컷 스트립",
+    file: "frames/frame_pink.png",
+    canvas: { width: 600, height: 1800 },
+    aspectRatio: "1:3",
+    slotCount: 4,
+    themeColor: "#ff6b8b",
+    slots: [
+      { x: 40, y: 40, w: 520, h: 380 },
+      { x: 40, y: 460, w: 520, h: 380 },
+      { x: 40, y: 880, w: 520, h: 380 },
+      { x: 40, y: 1300, w: 520, h: 380 }
+    ]
+  },
+  {
+    id: "frame_mono",
+    name: "모던 모노크롬 (Modern Mono)",
+    description: "시크하고 세련된 블랙 & 화이트 4컷 스트립",
+    file: "frames/frame_mono.png",
+    canvas: { width: 600, height: 1800 },
+    aspectRatio: "1:3",
+    slotCount: 4,
+    themeColor: "#1a1a1a",
+    slots: [
+      { x: 40, y: 40, w: 520, h: 380 },
+      { x: 40, y: 460, w: 520, h: 380 },
+      { x: 40, y: 880, w: 520, h: 380 },
+      { x: 40, y: 1300, w: 520, h: 380 }
+    ]
+  },
+  {
+    id: "frame_retro",
+    name: "빈티지 필름 (Vintage Film)",
+    description: "클래식 필름 감성의 레트로 4컷 스트립",
+    file: "frames/frame_retro.png",
+    canvas: { width: 600, height: 1800 },
+    aspectRatio: "1:3",
+    slotCount: 4,
+    themeColor: "#c89666",
+    slots: [
+      { x: 40, y: 40, w: 520, h: 380 },
+      { x: 40, y: 460, w: 520, h: 380 },
+      { x: 40, y: 880, w: 520, h: 380 },
+      { x: 40, y: 1300, w: 520, h: 380 }
+    ]
+  },
+  {
+    id: "frame_grid",
+    name: "파스텔 2x2 그리드 (Pastel Grid)",
+    description: "넓고 귀여운 2x2 와이드 4컷 레이아웃",
+    file: "frames/frame_grid.png",
+    canvas: { width: 1200, height: 1600 },
+    aspectRatio: "3:4",
+    slotCount: 4,
+    themeColor: "#845ec2",
+    slots: [
+      { x: 50, y: 50, w: 530, h: 680 },
+      { x: 620, y: 50, w: 530, h: 680 },
+      { x: 50, y: 770, w: 530, h: 680 },
+      { x: 620, y: 770, w: 530, h: 680 }
+    ]
+  }
+];
+
 class App {
   constructor() {
     this.frames = [];
@@ -33,9 +100,12 @@ class App {
 
   async init() {
     this.studio.init();
-    await this.loadFrames();
+    // 1. 내장 프레임 및 캐시 즉시 로드 (0초 즉시 실행)
+    this.loadInitialFramesSync();
     this.renderFilterPresets();
     this.goToStep('start');
+    // 2. 백그라운드에서 구글 드라이브 및 최신 프레임 비동기 동기화 (화면 지연 없음)
+    this.refreshFramesAsync();
   }
 
   getAdminPin() {
@@ -431,8 +501,8 @@ class App {
 
     // 스텝별 진입 작업
     if (stepName === 'frame') {
-      await this.loadFrames();
       this.renderFrameGallery();
+      this.refreshFramesAsync();
     } else if (stepName === 'camera') {
       await this.setupCameraStep();
     } else if (stepName === 'editor') {
@@ -443,68 +513,99 @@ class App {
     }
   }
 
-  // 1. 프레임 로드 및 데이터 정규화
-  async loadFrames() {
-    let localFrames = [];
+  // 1-1. 단일 프레임 데이터 정규화 안전 처리
+  normalizeFrame(f) {
+    if (!f || typeof f !== 'object') return null;
+    const clone = Object.assign({}, f);
+
+    if (typeof clone.slots === 'string') {
+      try { clone.slots = JSON.parse(clone.slots); } catch (e) { clone.slots = null; }
+    }
+    if (typeof clone.canvas === 'string') {
+      try { clone.canvas = JSON.parse(clone.canvas); } catch (e) { clone.canvas = null; }
+    }
+    if (!clone.canvas || typeof clone.canvas !== 'object') {
+      clone.canvas = clone.aspectRatio === '3:4' ? { width: 1200, height: 1600 } : { width: 600, height: 1800 };
+    }
+    if (!Array.isArray(clone.slots) || clone.slots.length === 0) {
+      if (clone.aspectRatio === '3:4') {
+        clone.slots = [
+          { x: 50, y: 50, w: 530, h: 680 },
+          { x: 620, y: 50, w: 530, h: 680 },
+          { x: 50, y: 770, w: 530, h: 680 },
+          { x: 620, y: 770, w: 530, h: 680 }
+        ];
+      } else {
+        clone.slots = [
+          { x: 40, y: 40, w: 520, h: 380 },
+          { x: 40, y: 460, w: 520, h: 380 },
+          { x: 40, y: 880, w: 520, h: 380 },
+          { x: 40, y: 1300, w: 520, h: 380 }
+        ];
+      }
+    }
+    if (!clone.slotCount) {
+      clone.slotCount = clone.slots.length;
+    }
+    return clone;
+  }
+
+  // 1-2. 내장 프레임 & 로컬 캐시 0초 동기 즉시 로드
+  loadInitialFramesSync() {
+    const cachedCustom = gasManager.getCachedCustomFrames();
+    const allFrames = [...BUILTIN_FRAMES, ...cachedCustom]
+      .map(f => this.normalizeFrame(f))
+      .filter(Boolean);
+
+    this.frames = allFrames;
+    if (this.frames.length > 0) {
+      if (!this.selectedFrame || !this.frames.some(f => f.id === this.selectedFrame.id)) {
+        this.selectedFrame = this.frames[0];
+      }
+    }
+    this.renderFrameGallery();
+  }
+
+  // 1-3. 백그라운드 프레임 비동기 동기화 (구글 드라이브 및 frames.json)
+  async refreshFramesAsync() {
+    let localFrames = BUILTIN_FRAMES;
     try {
       const res = await fetch('frames/frames.json');
-      localFrames = await res.json();
+      const json = await res.json();
+      if (Array.isArray(json) && json.length > 0) localFrames = json;
     } catch (e) {
-      console.error('Failed to load frames.json:', e);
+      // 내장 BUILTIN_FRAMES 유지
     }
 
     let customFrames = [];
     if (gasManager.isConfigured()) {
       try {
-        customFrames = await gasManager.fetchCustomFrames();
+        customFrames = await gasManager.fetchCustomFrames({ timeoutMs: 3500 });
       } catch (err) {
-        console.warn('Failed to fetch custom frames from GAS:', err);
+        console.warn('Background GAS fetchCustomFrames error:', err);
       }
+    } else {
+      customFrames = gasManager.getCachedCustomFrames();
     }
 
-    const allFrames = [...localFrames, ...customFrames].map(f => {
-      // slots가 문자열이면 파싱
-      if (typeof f.slots === 'string') {
-        try { f.slots = JSON.parse(f.slots); } catch (e) { f.slots = null; }
-      }
-      // canvas가 문자열이면 파싱
-      if (typeof f.canvas === 'string') {
-        try { f.canvas = JSON.parse(f.canvas); } catch (e) { f.canvas = null; }
-      }
-      if (!f.canvas || typeof f.canvas !== 'object') {
-        f.canvas = f.aspectRatio === '3:4' ? { width: 1200, height: 1600 } : { width: 600, height: 1800 };
-      }
-      if (!Array.isArray(f.slots) || f.slots.length === 0) {
-        if (f.aspectRatio === '3:4') {
-          f.slots = [
-            { x: 50, y: 50, w: 530, h: 680 },
-            { x: 620, y: 50, w: 530, h: 680 },
-            { x: 50, y: 770, w: 530, h: 680 },
-            { x: 620, y: 770, w: 530, h: 680 }
-          ];
-        } else {
-          f.slots = [
-            { x: 40, y: 40, w: 520, h: 380 },
-            { x: 40, y: 460, w: 520, h: 380 },
-            { x: 40, y: 880, w: 520, h: 380 },
-            { x: 40, y: 1300, w: 520, h: 380 }
-          ];
-        }
-      }
-      if (!f.slotCount) {
-        f.slotCount = f.slots.length;
-      }
-      return f;
-    });
+    const allFrames = [...localFrames, ...customFrames]
+      .map(f => this.normalizeFrame(f))
+      .filter(Boolean);
 
     this.frames = allFrames;
     if (this.frames.length > 0) {
       if (!this.selectedFrame || !this.frames.some(f => f.id === this.selectedFrame.id)) {
         this.selectedFrame = this.frames[0];
       } else {
-        this.selectedFrame = this.frames.find(f => f.id === this.selectedFrame.id);
+        this.selectedFrame = this.frames.find(f => f.id === this.selectedFrame.id) || this.frames[0];
       }
     }
+    this.renderFrameGallery();
+  }
+
+  // 외부(관리자/스튜디오 등)에서 수동 호출 시 호환성 유지
+  async loadFrames() {
+    await this.refreshFramesAsync();
   }
 
   renderFrameGallery() {

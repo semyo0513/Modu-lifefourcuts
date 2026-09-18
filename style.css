@@ -45,28 +45,34 @@ html, body {
 .app-header {
   height: 56px;
   min-height: 56px;
-  background: rgba(11, 15, 25, 0.92);
+  background: rgba(11, 15, 25, 0.95);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 16px;
   z-index: 100;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .logo-btn {
   background: none;
   border: none;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   cursor: pointer;
   text-decoration: none;
+  flex-shrink: 0;
+  min-width: 0;
+  user-select: none;
 }
 
 .logo-icon-sparkle {
   font-size: 1.1rem;
+  flex-shrink: 0;
   animation: sparkleTwinkle 1.8s infinite ease-in-out;
 }
 
@@ -76,21 +82,25 @@ html, body {
 }
 
 .logo-icon {
-  font-size: 1.5rem;
+  font-size: 1.45rem;
+  flex-shrink: 0;
   filter: drop-shadow(0 0 10px rgba(255, 94, 142, 0.8));
 }
 
 .logo-text {
   font-family: var(--font-logo);
-  font-size: 1.55rem;
+  font-size: 1.45rem;
   font-weight: 900;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   background: var(--logo-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 0 12px rgba(255, 94, 142, 0.65)) drop-shadow(0 0 2px rgba(255, 222, 89, 0.8));
   text-shadow: 0 0 20px rgba(255, 94, 142, 0.3);
   transition: transform 0.2s ease;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  display: inline-block;
 }
 
 .logo-btn:hover .logo-text {
@@ -100,7 +110,8 @@ html, body {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .btn-icon {
@@ -1546,6 +1557,76 @@ input[type="range"] {
   display: flex;
   gap: 8px;
   width: 100%;
+}
+
+/* --------------------------------------------------------------------------
+   반응형 모바일 화면 스타일 (@media max-width)
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .app-header {
+    height: 50px;
+    min-height: 50px;
+    padding: 0 10px;
+  }
+
+  .logo-text {
+    font-size: 1.2rem;
+  }
+
+  .logo-icon {
+    font-size: 1.25rem;
+  }
+
+  .logo-icon-sparkle {
+    font-size: 0.9rem;
+  }
+
+  .header-actions {
+    gap: 4px;
+  }
+
+  .btn-text-hide-mobile {
+    display: none !important;
+  }
+
+  .btn-icon {
+    padding: 6px 8px;
+    font-size: 0.8rem;
+  }
+
+  .app-main {
+    padding: 6px 10px;
+    height: calc(100vh - 50px - 24px);
+  }
+
+  .frame-gallery {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+  }
+
+  .frame-thumb-wrap {
+    height: 160px;
+  }
+}
+
+@media (max-width: 420px) {
+  .app-header {
+    padding: 0 8px;
+  }
+
+  .logo-text {
+    font-size: 1.05rem;
+    letter-spacing: 0;
+  }
+
+  .logo-icon-sparkle {
+    display: none;
+  }
+
+  .btn-icon {
+    padding: 5px 6px;
+    font-size: 0.75rem;
+  }
 }
 
 /* --------------------------------------------------------------------------
