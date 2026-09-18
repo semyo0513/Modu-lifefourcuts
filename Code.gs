@@ -43,41 +43,33 @@ function doGet(e) {
 
   try {
     if (action === "ping") {
-      var ss = getOrCreateSpreadsheet();
       result = { 
         status: "ok", 
-        message: "모두의 네컷 사진 GAS 백엔드가 정상 작동 중입니다.",
-        sheetName: ss ? ss.getName() : "연동 스프레드시트",
-        spreadsheetUrl: ss ? ss.getUrl() : ""
+        message: "모두의 네컷 사진 GAS 백엔드가 정상 작동 중입니다."
       };
     } else if (action === "getFrames") {
-      var cache = CacheService.getScriptCache();
-      var cachedFramesJson = cache.get("CUSTOM_FRAMES_CACHE");
-      if (cachedFramesJson) {
-        return ContentService.createTextOutput(cachedFramesJson)
-          .setMimeType(ContentService.MimeType.JSON);
-      }
       var frames = getStoredFramesWithBase64();
-      var responseObj = { status: "ok", frames: frames };
-      var responseStr = JSON.stringify(responseObj);
-      try {
-        cache.put("CUSTOM_FRAMES_CACHE", responseStr, 21600); // 6시간 캐싱
-      } catch (e) {
-        Logger.log("Cache put failed: " + e);
-      }
-      return ContentService.createTextOutput(responseStr)
-        .setMimeType(ContentService.MimeType.JSON);
+      result = { status: "ok", frames: frames };
     } else if (action === "getFrameBase64") {
       var fileId = params.fileId;
       if (fileId) {
-        var file = DriveApp.getFileById(fileId);
-        var b64 = Utilities.base64Encode(file.getBlob().getBytes());
-        result = { status: "ok", dataUrl: "data:image/png;base64," + b64 };
+        try {
+          var file = DriveApp.getFileById(fileId);
+          var b64 = Utilities.base64Encode(file.getBlob().getBytes());
+          result = { status: "ok", dataUrl: "data:image/png;base64," + b64 };
+        } catch(e) {
+          result = { status: "error", message: e.toString() };
+        }
       } else {
         result = { status: "error", message: "fileId가 필요합니다." };
       }
     } else if (action === "getAdminInfo") {
-      result = { status: "ok", spreadsheetUrl: getOrCreateSpreadsheet().getUrl() };
+      try {
+        var ss = getOrCreateSpreadsheet();
+        result = { status: "ok", spreadsheetUrl: ss ? ss.getUrl() : "" };
+      } catch (e) {
+        result = { status: "ok", spreadsheetUrl: "" };
+      }
     } else {
       result = { status: "error", message: "알 수 없는 GET action입니다." };
     }
