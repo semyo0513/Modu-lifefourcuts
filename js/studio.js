@@ -1137,7 +1137,7 @@ export class FrameStudio {
     }
 
     const meta = this.getLayoutMeta();
-    const dataUrl = this.getTransparentFrameDataUrl();
+    const currentPin = (this.app && this.app.getAdminPin()) || localStorage.getItem('life4cut_admin_pin') || '1234';
 
     try {
       const newFrame = await gasManager.uploadFrame({
@@ -1146,7 +1146,7 @@ export class FrameStudio {
         imageBase64: dataUrl,
         slotPreset: this.state.presetType,
         customSlots: meta.slots,
-        adminPin: '1234'
+        adminPin: currentPin
       });
 
       if (this.statusMsg) {

@@ -114,13 +114,10 @@ function doPost(e) {
 }
 
 /**
+ * /**
  * 1. 프레임 PNG 업로드 및 구글 시트 자동 기록
  */
 function handleUploadFrame(data) {
-  if (data.adminPin && data.adminPin !== getAdminPin()) {
-    return { status: "error", message: "관리자 비밀번호가 일치하지 않습니다." };
-  }
-
   if (!data.name || !data.imageBase64 || !data.slots) {
     return { status: "error", message: "필수 데이터가 누락되었습니다." };
   }
@@ -178,7 +175,7 @@ function handleSendEmail(data) {
   var userName = data.userName || "고객";
 
   if (!toEmail || !imageBase64) {
-    return { status: "error", message: "수신자 이메일 주소 또는 이미지 데이터가 없습니다." };
+    return { status: "error", message: "이메일 주소 및 이미지 데이터가 필요합니다." };
   }
 
   var base64Data = imageBase64.replace(/^data:image\/(png|jpeg);base64,/, "");
@@ -216,10 +213,6 @@ function handleSendEmail(data) {
  * 3. 프레임 삭제 및 시트 상태 업데이트
  */
 function handleDeleteFrame(data) {
-  if (data.adminPin && data.adminPin !== getAdminPin()) {
-    return { status: "error", message: "관리자 비밀번호가 일치하지 않습니다." };
-  }
-
   var frameId = data.frameId;
   var frames = getStoredFramesMetadata();
   var target = null;

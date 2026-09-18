@@ -96,10 +96,12 @@ export class GasManager {
   }
 
   // 2. 새 프레임 PNG 업로드 (구글 드라이브에 저장)
-  async uploadFrame({ name, description, imageBase64, slotPreset = 'strip_4', customSlots = null, adminPin = '1234' }) {
+  async uploadFrame({ name, description, imageBase64, slotPreset = 'strip_4', customSlots = null, adminPin = null }) {
     if (!this.isConfigured()) {
       throw new Error('Google Apps Script 웹 앱 URL이 설정되지 않았습니다. [설정⚙️]에서 URL을 먼저 등록해 주세요.');
     }
+
+    const pin = adminPin || localStorage.getItem('life4cut_admin_pin') || '1234';
 
     let canvas = { width: 600, height: 1800 };
     let slots = [
@@ -135,7 +137,7 @@ export class GasManager {
       slots: slots,
       slotCount: slotCount,
       aspectRatio: aspectRatio,
-      adminPin: adminPin,
+      adminPin: pin,
     };
 
     const res = await fetch(this.gasUrl, {
@@ -146,8 +148,17 @@ export class GasManager {
 
     const result = await res.json();
     if (result.status !== 'ok') {
-      throw new Error(result.message || '프레임 업로드 중 오류가 발생했습니다.');
+      throw new Error(result.message || '프레임 업로드 실패');
     }
+
+    // 업로드 후 로컬 캐시 즉시 갱신
+    try {
+      const cached = this.getCachedCustomFrames();
+      if (result.frame) {
+        cached.push(result.frame);
+        this.setCachedCustomFrames(cached);
+      }
+    } catch (e) {}
 
     return result.frame;
   }
