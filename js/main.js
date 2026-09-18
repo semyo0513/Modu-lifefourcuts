@@ -632,7 +632,7 @@ class App {
       card.className = `frame-card ${this.selectedFrame?.id === frame.id ? 'selected' : ''}`;
       card.innerHTML = `
         <div class="frame-thumb-wrap">
-          <img src="${frame.file}" alt="${frame.name}" class="frame-thumb-img" onerror="this.style.opacity=0.3" />
+          <img src="${frame.file}" alt="${frame.name}" class="frame-thumb-img" loading="lazy" onerror="this.style.opacity=0.3" />
           <span class="slot-badge">${frame.slotCount}컷</span>
           ${frame.isCustom ? '<span style="position:absolute; bottom:6px; left:6px; background:#ff5e8e; color:#fff; font-size:0.68rem; padding:2px 6px; border-radius:4px;">☁️ 드라이브</span>' : ''}
         </div>
@@ -647,6 +647,13 @@ class App {
         this.selectedFrame = frame;
         document.querySelectorAll('.frame-card').forEach(c => c.classList.remove('selected'));
         card.classList.add('selected');
+
+        // 커스텀 프레임 선택 시 백그라운드에서 합성용 Base64 선행 로드 (촬영 중 0초 대기)
+        if (frame.isCustom && frame.fileId && (!frame.file || !frame.file.startsWith('data:'))) {
+          gasManager.getFrameBase64(frame.fileId).then(b64 => {
+            if (b64) frame.file = b64;
+          }).catch(() => {});
+        }
       });
 
       this.frameListEl.appendChild(card);
@@ -659,6 +666,13 @@ class App {
     this.cameraProgressText.textContent = '카메라 준비 완료 (총 6컷 촬영)';
     this.countdownOverlay.style.display = 'none';
     document.getElementById('btn-start-shooting').style.display = 'inline-flex';
+
+    // 촬영 준비 동안 선택된 프레임 고화질 Base64 사전 확보
+    if (this.selectedFrame?.isCustom && this.selectedFrame?.fileId && (!this.selectedFrame.file || !this.selectedFrame.file.startsWith('data:'))) {
+      gasManager.getFrameBase64(this.selectedFrame.fileId).then(b64 => {
+        if (b64) this.selectedFrame.file = b64;
+      }).catch(() => {});
+    }
 
     const result = await this.camera.startCamera('user');
     this.updateCameraMirrorClass();

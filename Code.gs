@@ -48,7 +48,7 @@ function doGet(e) {
         message: "모두의 네컷 사진 GAS 백엔드가 정상 작동 중입니다."
       };
     } else if (action === "getFrames") {
-      var frames = getStoredFramesWithBase64();
+      var frames = getStoredFramesMetadata();
       result = { status: "ok", frames: frames };
     } else if (action === "getFrameBase64") {
       var fileId = params.fileId;
@@ -264,7 +264,7 @@ function handleSaveSettingsLog(data) {
 }
 
 /**
- * 5. 구글 드라이브 폴더 내 모든 PNG 프레임을 강제로 스캔하여 동기화
+ * 5. 구글 드라이브 폴더 내 모든 PNG 프레임을 초고속 동기화
  */
 function handleSyncDriveFolder() {
   try {
@@ -319,7 +319,7 @@ function handleSyncDriveFolder() {
             fileId: fileId,
             name: cleanName,
             description: "구글 드라이브 동기화 프레임",
-            file: "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w2000",
+            file: "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w1600",
             canvas: canvas,
             aspectRatio: aspectRatio,
             slotCount: slots.length,
@@ -330,33 +330,21 @@ function handleSyncDriveFolder() {
           };
           addedCount++;
           logFrameToSheet(frame, "드라이브 폴더 동기화");
+        } else {
+          if (!frame.file || frame.file.startsWith("data:")) {
+            frame.file = "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w1600";
+          }
         }
 
-        // Base64 추출
-        try {
-          var b64 = Utilities.base64Encode(file.getBlob().getBytes());
-          var frameWithB64 = Object.assign({}, frame);
-          frameWithB64.file = "data:image/png;base64," + b64;
-          syncedFrames.push(frameWithB64);
-        } catch (err) {
-          syncedFrames.push(frame);
-        }
+        syncedFrames.push(frame);
       }
     }
 
-    // 메타데이터 최신화 저장
-    var metadataToSave = syncedFrames.map(function(f) {
-      var copy = Object.assign({}, f);
-      if (copy.file && copy.file.startsWith("data:")) {
-        copy.file = "https://drive.google.com/thumbnail?id=" + copy.fileId + "&sz=w2000";
-      }
-      return copy;
-    });
-    saveStoredFramesMetadata(metadataToSave);
+    saveStoredFramesMetadata(syncedFrames);
 
     return {
       status: "ok",
-      message: "구글 드라이브 폴더에서 " + syncedFrames.length + "개의 프레임을 성공적으로 동기화했습니다.",
+      message: "구글 드라이브 폴더에서 " + syncedFrames.length + "개의 프레임을 초고속 동기화했습니다.",
       count: syncedFrames.length,
       addedCount: addedCount,
       frames: syncedFrames
