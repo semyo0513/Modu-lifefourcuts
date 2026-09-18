@@ -1140,6 +1140,17 @@ class App {
       return;
     }
 
+    if (testUrl.includes('AKfycbwaJY0ltkGCjqbwOF8SKQHyPmcSUaP8CM9zgZxx6t4cm2nXQeMVm1KzAnaYX_mJ7G_1Rw')) {
+      resultEl.style.display = 'block';
+      resultEl.innerHTML = `
+        <span style="color:#ff6b8b;">🔴 <b>이전 만료된 샘플 URL입니다.</b></span><br/>
+        <span style="color:var(--text-muted); font-size:0.75rem; line-height:1.4; display:block; margin-top:3px;">
+          사용자님의 구글 시트에서 <b>[확장 프로그램] ➔ [Apps Script]</b>를 열고 <b>[새 배포 (액세스: 모든 사용자)]</b>를 진행하여 새로 발급받은 URL을 붙여넣어 주세요.
+        </span>
+      `;
+      return;
+    }
+
     testBtn.disabled = true;
     testBtn.textContent = '확인 중... ⏳';
     resultEl.style.display = 'block';
@@ -1169,8 +1180,8 @@ class App {
     } catch (err) {
       console.error('GAS connection test failed:', err);
       let advice = 'Apps Script 상단 [배포] ➔ [새 배포] ➔ [유형: 웹 앱] ➔ <b>[액세스 권한: 모든 사용자(Anyone)]</b>로 배포 후 새 URL을 붙여넣으세요.';
-      if (err.name === 'AbortError') {
-        advice = '서버 응답 시간이 초과되었습니다. URL을 확인하고 잠시 후 다시 시도해 주세요.';
+      if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+        advice = '서버 응답 시간이 초과되었거나 URL 접근이 차단되었습니다. 구글 시트의 Apps Script에서 <b>[새 배포 ➔ 액세스 권한: 모든 사용자(Anyone)]</b>로 생성된 새 URL인지 확인해 주세요.';
       }
       resultEl.innerHTML = `
         <span style="color:#ff6b8b;">🔴 <b>연결 실패:</b> ${err.message}</span><br/>
