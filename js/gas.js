@@ -1,4 +1,4 @@
-export const DEFAULT_GAS_URL = '';
+export const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxNgOwbRHBvKTxnGHRwxCTjmLH7yMClY36XLUbAyGyKCzd7UrB58u_Bi9V8ZmPwoDsQ1Q/exec';
 const DEPRECATED_URL_PATTERN = 'AKfycbwaJY0ltkGCjqbwOF8SKQHyPmcSUaP8CM9zgZxx6t4cm2nXQeMVm1KzAnaYX_mJ7G_1Rw';
 
 export class GasManager {
@@ -11,9 +11,12 @@ export class GasManager {
     try {
       const saved = localStorage.getItem(this.storageKey);
       if (saved && saved.includes(DEPRECATED_URL_PATTERN)) {
-        return ''; // 이전 만료된 404 URL 자동 초기화
+        return DEFAULT_GAS_URL; // 이전 만료된 URL은 새 기본 URL로 자동 전환
       }
-      return saved || DEFAULT_GAS_URL;
+      if (saved && saved.startsWith('https://script.google.com')) {
+        return saved;
+      }
+      return DEFAULT_GAS_URL;
     } catch (e) {
       return DEFAULT_GAS_URL;
     }
