@@ -23,6 +23,17 @@ var FOLDER_NAME = "Everyone_FourCut_Frames";
 var SPREADSHEET_NAME = "모두의_네컷사진_관리자_기록시트";
 
 /**
+ * 💡 초기 권한 승인 및 테스트용 함수 (Apps Script 편집기에서 [▶ 실행] 클릭)
+ */
+function testSetup() {
+  var ss = getOrCreateSpreadsheet();
+  Logger.log("✅ 스프레드시트 연결 성공: " + ss.getName() + " (" + ss.getUrl() + ")");
+  var folder = getOrCreateFolder(FOLDER_NAME);
+  Logger.log("✅ 드라이브 폴더 연결 성공: " + folder.getName());
+  return "OK";
+}
+
+/**
  * GET 요청 처리
  */
 function doGet(e) {
