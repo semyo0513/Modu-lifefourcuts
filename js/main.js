@@ -389,7 +389,12 @@ class App {
       await this.openGoogleSheet();
     });
 
-    // Settings save
+    // Settings save & test connection
+    document.getElementById('btn-test-gas-conn')?.addEventListener('click', async () => {
+      sound.playClick();
+      await this.testGasConnection();
+    });
+
     document.getElementById('btn-save-settings')?.addEventListener('click', async () => {
       sound.playClick();
       await this.saveSettingsModal();
@@ -1110,11 +1115,71 @@ class App {
     this.closeAllModals();
     document.getElementById('input-gas-url').value = gasManager.gasUrl || '';
     document.getElementById('input-change-admin-pin').value = '';
+    const resultEl = document.getElementById('gas-test-result');
+    if (resultEl) {
+      resultEl.style.display = 'none';
+      resultEl.innerHTML = '';
+    }
     const config = emailSender.loadConfig();
     document.getElementById('input-service-id').value = config.serviceId || '';
     document.getElementById('input-template-id').value = config.templateId || '';
     document.getElementById('input-public-key').value = config.publicKey || '';
     if (this.settingsModal) this.settingsModal.classList.add('active');
+  }
+
+  async testGasConnection() {
+    const input = document.getElementById('input-gas-url');
+    const resultEl = document.getElementById('gas-test-result');
+    const testBtn = document.getElementById('btn-test-gas-conn');
+    if (!input || !resultEl) return;
+
+    const testUrl = input.value.trim();
+    if (!testUrl) {
+      resultEl.style.display = 'block';
+      resultEl.innerHTML = '<span style="color:#ff6b8b;">⚠️ Google Apps Script 웹 앱 URL을 먼저 입력해 주세요.</span>';
+      return;
+    }
+
+    testBtn.disabled = true;
+    testBtn.textContent = '확인 중... ⏳';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<span style="color:#38bdf8;">🔄 웹 앱 연결 상태 및 시트 연동을 확인하고 있습니다...</span>';
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      const res = await fetch(`${testUrl}${testUrl.includes('?') ? '&' : '?'}action=ping&t=${Date.now()}`, {
+        method: 'GET',
+        cache: 'no-store',
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status} (${res.statusText || '배포 상태 확인 필요'})`);
+      }
+
+      const data = await res.json();
+      if (data && data.status === 'ok') {
+        const sheetInfo = data.sheetName ? ` [연동 시트: <b>${data.sheetName}</b>]` : '';
+        resultEl.innerHTML = `<span style="color:#10b981;">🟢 <b>정상 연결됨!</b> 구글 앱스스크립트 및 기록 시트와 통신 성공!${sheetInfo}</span>`;
+      } else {
+        resultEl.innerHTML = `<span style="color:#f59e0b;">⚠️ 응답 수신됨: ${data.message || JSON.stringify(data)}</span>`;
+      }
+    } catch (err) {
+      console.error('GAS connection test failed:', err);
+      let advice = 'Apps Script 상단 [배포] ➔ [새 배포] ➔ [유형: 웹 앱] ➔ <b>[액세스 권한: 모든 사용자(Anyone)]</b>로 배포 후 새 URL을 붙여넣으세요.';
+      if (err.name === 'AbortError') {
+        advice = '서버 응답 시간이 초과되었습니다. URL을 확인하고 잠시 후 다시 시도해 주세요.';
+      }
+      resultEl.innerHTML = `
+        <span style="color:#ff6b8b;">🔴 <b>연결 실패:</b> ${err.message}</span><br/>
+        <span style="color:var(--text-muted); font-size:0.75rem; line-height:1.4; display:block; margin-top:2px;">💡 ${advice}</span>
+      `;
+    } finally {
+      testBtn.disabled = false;
+      testBtn.textContent = '🔍 연결 테스트';
+    }
   }
 
   async saveSettingsModal() {

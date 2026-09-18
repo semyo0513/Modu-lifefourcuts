@@ -32,7 +32,13 @@ function doGet(e) {
 
   try {
     if (action === "ping") {
-      result = { status: "ok", message: "모두의 네컷 사진 GAS 서버가 정상 작동 중입니다." };
+      var ss = getOrCreateSpreadsheet();
+      result = { 
+        status: "ok", 
+        message: "모두의 네컷 사진 GAS 백엔드가 정상 작동 중입니다.",
+        sheetName: ss ? ss.getName() : "연동 스프레드시트",
+        spreadsheetUrl: ss ? ss.getUrl() : ""
+      };
     } else if (action === "getFrames") {
       var cache = CacheService.getScriptCache();
       var cachedFramesJson = cache.get("CUSTOM_FRAMES_CACHE");
@@ -263,17 +269,43 @@ function handleSaveSettingsLog(data) {
    ========================================================================== */
 
 function getOrCreateSpreadsheet() {
-  var files = DriveApp.getFilesByName(SPREADSHEET_NAME);
-  var ss;
-  if (files.hasNext()) {
-    var file = files.next();
-    ss = SpreadsheetApp.open(file);
-  } else {
-    var folder = getOrCreateFolder(FOLDER_NAME);
-    ss = SpreadsheetApp.create(SPREADSHEET_NAME);
-    var driveFile = DriveApp.getFileById(ss.getId());
-    folder.addFile(driveFile);
-    DriveApp.getRootFolder().removeFile(driveFile);
+  var ss = null;
+
+  // 1. 활성화된(현재 열려있는) 스프레드시트가 있는 경우 최우선 사용 (스프레드시트 내 확장프로그램 연동 시)
+  try {
+    ss = SpreadsheetApp.getActiveSpreadsheet();
+  } catch (e) {
+    Logger.log("getActiveSpreadsheet not available: " + e);
+  }
+
+  // 2. 스크립트 프로퍼티에 저장된 SPREADSHEET_ID 가 있는 경우
+  if (!ss) {
+    var storedId = PropertiesService.getScriptProperties().getProperty("SPREADSHEET_ID");
+    if (storedId) {
+      try {
+        ss = SpreadsheetApp.openById(storedId);
+      } catch (e) {
+        ss = null;
+      }
+    }
+  }
+
+  // 3. 없으면 구글 드라이브에서 이름으로 찾기 또는 새로 생성
+  if (!ss) {
+    var files = DriveApp.getFilesByName(SPREADSHEET_NAME);
+    if (files.hasNext()) {
+      var file = files.next();
+      ss = SpreadsheetApp.open(file);
+    } else {
+      var folder = getOrCreateFolder(FOLDER_NAME);
+      ss = SpreadsheetApp.create(SPREADSHEET_NAME);
+      var driveFile = DriveApp.getFileById(ss.getId());
+      folder.addFile(driveFile);
+      try { DriveApp.getRootFolder().removeFile(driveFile); } catch (e) {}
+    }
+    if (ss) {
+      PropertiesService.getScriptProperties().setProperty("SPREADSHEET_ID", ss.getId());
+    }
   }
 
   initSheetHeaders(ss);

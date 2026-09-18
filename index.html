@@ -355,9 +355,15 @@
       
       <!-- 구글 앱스스크립트(GAS) 설정 (메인) -->
       <div class="form-group" style="background: rgba(255, 94, 142, 0.08); padding: 12px; border-radius: 8px; border: 1px solid rgba(255, 94, 142, 0.3);">
-        <label for="input-gas-url" style="color: #ff5e8e; font-weight: 700;">Google Apps Script 웹 앱 URL (연동됨 ✅)</label>
-        <input type="url" id="input-gas-url" class="form-input" value="https://script.google.com/macros/s/AKfycbwaJY0ltkGCjqbwOF8SKQHyPmcSUaP8CM9zgZxx6t4cm2nXQeMVm1KzAnaYX_mJ7G_1Rw/exec" placeholder="https://script.google.com/macros/s/.../exec" />
-        <p class="form-helper">구글 드라이브 프레임 저장과 Gmail 이메일 발송, 시트 로그가 자동 연동되어 있습니다.</p>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <label for="input-gas-url" style="color: #ff5e8e; font-weight: 700; margin-bottom: 0;">Google Apps Script 웹 앱 URL</label>
+          <button type="button" id="btn-test-gas-conn" class="btn-icon" style="padding: 3px 8px; font-size: 0.75rem; color: var(--accent-pink); border-color: var(--accent-pink);">
+            🔍 연결 테스트
+          </button>
+        </div>
+        <input type="url" id="input-gas-url" class="form-input" placeholder="https://script.google.com/macros/s/.../exec" />
+        <div id="gas-test-result" style="margin-top: 6px; font-size: 0.78rem; display: none;"></div>
+        <p class="form-helper" style="margin-top: 6px;">구글 드라이브 프레임 저장과 시트 기록, Gmail 발송을 담당하는 배포 웹 앱 URL입니다.</p>
       </div>
 
       <!-- 관리자 비밀번호 변경 -->
