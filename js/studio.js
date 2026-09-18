@@ -1137,6 +1137,7 @@ export class FrameStudio {
     }
 
     const meta = this.getLayoutMeta();
+    const dataUrl = this.getTransparentFrameDataUrl();
     const currentPin = (this.app && this.app.getAdminPin()) || localStorage.getItem('life4cut_admin_pin') || '1234';
 
     try {
