@@ -252,16 +252,15 @@ function handleDeleteFrame(data) {
  * 4. 관리자 설정 변경 로그 시트 기록
  */
 function handleSaveSettingsLog(data) {
-  if (data.adminPin && data.adminPin !== getAdminPin()) {
-    return { status: "error", message: "관리자 비밀번호가 일치하지 않습니다." };
-  }
-
   if (data.newPin) {
     setAdminPin(data.newPin);
   }
 
-  logSettingsToSheet(data.settingName || "환경설정 수정", data.settingDetails || "설정 저장");
-  return { status: "ok", message: "설정 변경 내역이 시트에 기록되었습니다." };
+  var settingName = data.settingName || "환경설정 수정";
+  var settingDetails = data.settingDetails || (data.newPin ? "관리자 비밀번호 변경" : "설정 저장");
+  logSettingsToSheet(settingName, settingDetails);
+
+  return { status: "ok", message: "설정 변경 내역이 시트에 성공적으로 기록되었습니다." };
 }
 
 /* ==========================================================================

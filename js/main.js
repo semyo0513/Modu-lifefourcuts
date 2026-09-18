@@ -1194,17 +1194,26 @@ class App {
   }
 
   async saveSettingsModal() {
-    const gasUrl = document.getElementById('input-gas-url').value;
+    const gasUrl = document.getElementById('input-gas-url').value.trim();
     gasManager.saveGasUrl(gasUrl);
 
     const newPin = document.getElementById('input-change-admin-pin').value.trim();
+    const currentPin = this.getAdminPin();
+
     if (newPin) {
       this.setAdminPin(newPin);
       await gasManager.saveSettingsLog({
         settingName: '관리자 비밀번호 변경',
-        settingDetails: '새 비밀번호로 변경됨',
+        settingDetails: '관리자 비밀번호가 변경되었습니다.',
         newPin: newPin,
-        adminPin: newPin
+        adminPin: currentPin
+      });
+    } else if (gasUrl) {
+      await gasManager.saveSettingsLog({
+        settingName: '환경설정 저장',
+        settingDetails: 'Google Apps Script 웹 앱 연동 저장',
+        newPin: null,
+        adminPin: currentPin
       });
     }
 
@@ -1213,7 +1222,7 @@ class App {
     const pKey = document.getElementById('input-public-key').value;
     emailSender.saveConfig(sId, tId, pKey);
 
-    alert('설정이 성공적으로 저장되었습니다!');
+    alert('설정이 성공적으로 저장되었으며 시트에 기록되었습니다!');
     this.closeAllModals();
     this.loadFrames();
   }
@@ -1241,7 +1250,12 @@ class App {
 
     const customFrames = await gasManager.fetchCustomFrames();
     if (customFrames.length === 0) {
-      listEl.innerHTML = '<p style="font-size:0.8rem; color:var(--text-muted);">구글 드라이브에 등록된 커스텀 프레임이 없습니다.</p>';
+      listEl.innerHTML = `
+        <div style="padding:12px; text-align:center; background:var(--bg-primary); border-radius:6px; border:1px dashed var(--border-color);">
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:4px;">구글 드라이브에 등록된 커스텀 프레임이 없습니다.</p>
+          <p style="font-size:0.75rem; color:#ff5e8e;">위의 <b>[원클릭 프레임 제작기 열기 ✨]</b> 또는 <b>[PNG 파일 선택]</b>으로 새 프레임을 등록해 보세요!</p>
+        </div>
+      `;
       return;
     }
 
