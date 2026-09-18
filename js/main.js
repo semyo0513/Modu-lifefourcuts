@@ -1154,11 +1154,11 @@ class App {
     testBtn.disabled = true;
     testBtn.textContent = '확인 중... ⏳';
     resultEl.style.display = 'block';
-    resultEl.innerHTML = '<span style="color:#38bdf8;">🔄 웹 앱 연결 상태 및 시트 연동을 확인하고 있습니다...</span>';
+    resultEl.innerHTML = '<span style="color:#38bdf8;">🔄 웹 앱 연결 상태 및 시트 연동을 확인하고 있습니다... (구글 서버 응답 대기)</span>';
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
       const res = await fetch(`${testUrl}${testUrl.includes('?') ? '&' : '?'}action=ping&t=${Date.now()}`, {
         method: 'GET',
         cache: 'no-store',
@@ -1181,7 +1181,7 @@ class App {
       console.error('GAS connection test failed:', err);
       let advice = 'Apps Script 상단 [배포] ➔ [새 배포] ➔ [유형: 웹 앱] ➔ <b>[액세스 권한: 모든 사용자(Anyone)]</b>로 배포 후 새 URL을 붙여넣으세요.';
       if (err.name === 'AbortError' || err.message?.includes('aborted')) {
-        advice = '서버 응답 시간이 초과되었거나 URL 접근이 차단되었습니다. 구글 시트의 Apps Script에서 <b>[새 배포 ➔ 액세스 권한: 모든 사용자(Anyone)]</b>로 생성된 새 URL인지 확인해 주세요.';
+        advice = '구글 서버 초기 응답 시간이 다소 소요되었습니다. 잠시 후 다시 [연결 테스트]를 눌러보세요.';
       }
       resultEl.innerHTML = `
         <span style="color:#ff6b8b;">🔴 <b>연결 실패:</b> ${err.message}</span><br/>
