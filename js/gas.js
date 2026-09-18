@@ -153,12 +153,15 @@ export class GasManager {
 
     // 업로드 후 로컬 캐시 즉시 갱신
     try {
-      const cached = this.getCachedCustomFrames();
+      const cached = this.getCachedCustomFrames() || [];
       if (result.frame) {
-        cached.push(result.frame);
-        this.setCachedCustomFrames(cached);
+        const filtered = cached.filter(f => f.id !== result.frame.id);
+        filtered.unshift(result.frame);
+        this.setCachedCustomFrames(filtered);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Cache update error:', e);
+    }
 
     return result.frame;
   }

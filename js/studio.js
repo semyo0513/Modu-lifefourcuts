@@ -1154,10 +1154,13 @@ export class FrameStudio {
         this.statusMsg.innerHTML = '<span style="color:#10b981; font-weight:700;">🎉 구글 드라이브 등록 완료! 프레임 선택 목록에 즉시 추가되었습니다.</span>';
       }
 
-      if (this.app) {
-        await this.app.loadFrames();
-        this.app.selectedFrame = newFrame;
-        this.app.renderFrameGallery();
+      if (this.app && newFrame) {
+        const normalized = this.app.normalizeFrame(newFrame);
+        if (normalized) {
+          this.app.frames = [normalized, ...this.app.frames.filter(f => f.id !== normalized.id)];
+          this.app.selectedFrame = normalized;
+          this.app.renderFrameGallery();
+        }
       }
 
       setTimeout(() => {
@@ -1165,7 +1168,7 @@ export class FrameStudio {
         if (this.app) {
           this.app.goToStep('frame');
         }
-      }, 1200);
+      }, 800);
 
     } catch (err) {
       console.error('Frame Studio Upload Error:', err);
